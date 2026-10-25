@@ -1,0 +1,6 @@
+default_context:
+    languages: Node,Python
+    python_dependencies:
+        - aioimaplib
+        - django
+        - gunicorn
