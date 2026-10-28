@@ -1,55 +1,59 @@
 """Report spam to Spamhaus, delete its sender's mail, and filter future mail; checks only so far."""
 
 from asyncio import run
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from functools import wraps
-from json import load
 from logging import getLogger
 from os import environ
-from typing import Concatenate
-from urllib.request import Request, urlopen
+from typing import Any, Concatenate
 
+from aiohttp import ClientSession, ClientTimeout
 from aioimaplib import IMAP4_SSL
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandParser
 
-from hammer.management.commands.list_email import with_imap
+from hammer.management.commands.list_email import Runner, with_imap
 
 logger = getLogger(__name__)
-type Get = Callable[[str], object]
 
 
 def with_http[**P, T](
     variable: str, base_url: str, smoke_path: str, off: T | None = None
-) -> Callable[[Callable[Concatenate[Get, P], T]], Callable[P, T | None]]:
-    """Supply a JSON GET function bearing environ[variable], smoke tested on smoke_path.
+) -> Callable[[Callable[Concatenate[ClientSession, P], Coroutine[Any, Any, T]]], Runner[P, T]]:
+    """Supply a session bearing environ[variable], smoke tested by GET smoke_path.
 
     Keys starting with 'off', the default, return `off` instead.
     """
 
-    def decorate(function: Callable[Concatenate[Get, P], T]) -> Callable[P, T | None]:
+    def decorate(
+        function: Callable[Concatenate[ClientSession, P], Coroutine[Any, Any, T]],
+    ) -> Runner[P, T]:
         @wraps(function)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T | None:
+        async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
             key = environ.get(variable, 'off')
             if not key:
                 raise ImproperlyConfigured(f'{variable} empty; unset or off skips')
             if key.startswith('off'):
                 logger.info('%s off', variable)
                 return off
+            async with ClientSession(
+                base_url,
+                # Default User-Agents get 403 Forbidden from Spamhaus
+                headers={'Authorization': f'Bearer {key}', 'User-Agent': 'spamhammer'},
+                raise_for_status=True,
+                timeout=ClientTimeout(total=30),
+            ) as session:
+                async with session.get(smoke_path) as response:
+                    logger.info(
+                        '%s%s st=%s %s',
+                        base_url,
+                        smoke_path,
+                        response.status,
+                        await response.json(),
+                    )
+                return await function(session, *args, **kwargs)
 
-            def inner(path: str) -> object:
-                request = Request(  # noqa: S310 https base_url
-                    base_url + path,
-                    # Python-urllib's default User-Agent gets 403 Forbidden from Spamhaus
-                    headers={'Authorization': f'Bearer {key}', 'User-Agent': 'spamhammer'},
-                )
-                with urlopen(request, timeout=30) as response:  # noqa: S310 https base_url
-                    return load(response)
-
-            logger.info('%s%s %s', base_url, smoke_path, inner(smoke_path))
-            return function(inner, *args, **kwargs)
-
-        return wrapper
+        return inner
 
     return decorate
 
@@ -59,8 +63,8 @@ async def delete_and_filter(_imap: IMAP4_SSL, _sender: str) -> None:
     """TODO: delete the sender's mail and add a Sieve rule blocking them."""
 
 
-@with_http('SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'submissions/count')
-def report(_get: Get, _sender: str, _subject: str) -> None:
+@with_http('SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'lookup/threats-types')
+async def report(_session: ClientSession, _sender: str, _subject: str) -> None:
     """TODO: report spam to Spamhaus."""
 
 
@@ -77,4 +81,4 @@ class Command(BaseCommand):
         logger.info('Hammering %s %r', sender, subject)
         # TODO: delay so the workflow can be cancelled (undo) before acting
         run(delete_and_filter(sender))
-        report(sender, subject)
+        run(report(sender, subject))
