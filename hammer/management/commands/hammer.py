@@ -12,12 +12,12 @@ from aioimaplib import IMAP4_SSL
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandParser
 
-from hammer.management.commands.list_email import Runner, with_imap
+from hammer.management.commands.list_email import Runner, imap_session
 
 logger = getLogger(__name__)
 
 
-def with_http[**P, T](
+def json_session[**P, T](
     variable: str, base_url: str, smoke_path: str, off: T | None = None
 ) -> Callable[[Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, T]]], Runner[P, T]]:
     """Supply a session bearing environ[variable], then the JSON from its GET smoke_path.
@@ -53,12 +53,14 @@ def with_http[**P, T](
     return decorate
 
 
-@with_imap()
+@imap_session()
 async def delete_and_filter(_imap: IMAP4_SSL, _sender: str) -> None:
     """TODO: delete the sender's mail and add a Sieve rule blocking them."""
 
 
-@with_http('SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'lookup/threats-types')
+@json_session(
+    'SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'lookup/threats-types'
+)
 async def report(_session: ClientSession, _threat_types: Any, _sender: str, _subject: str) -> None:
     """TODO: report spam to Spamhaus."""
 

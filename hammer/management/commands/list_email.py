@@ -20,7 +20,7 @@ type Runner[**P, T] = Callable[P, Coroutine[Any, Any, T | None]]
 type Session[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T]]
 
 
-def with_imap[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runner[P, T]]:
+def imap_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runner[P, T]]:
     """Supply a client logged in to SPAMHAMMER_EMAIL_URLS, smoke tested by LOGIN.
 
     URLs, delimited by commas and/or whitespace, starting with 'off' return `off` instead.
@@ -58,7 +58,7 @@ def with_imap[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runner[
     return decorate
 
 
-@with_imap(off=[])
+@imap_session(off=[])
 async def list_email(imap: IMAP4_SSL) -> list[str]:
     """Return `address subject` of the last 10 unread messages, peeking to leave them unread.
 
