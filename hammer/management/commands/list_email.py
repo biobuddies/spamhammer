@@ -1,8 +1,9 @@
-"""List senders of the latest unread messages over IMAP, read-only."""
+"""List sender addresses and subjects of the latest unread messages over IMAP, read-only."""
 
 from asyncio import run
 from collections.abc import Callable, Coroutine
-from email import message_from_bytes
+from email import message_from_bytes, policy
+from email.utils import parseaddr
 from functools import wraps
 from logging import getLogger
 from os import environ
@@ -59,18 +60,25 @@ def with_imap[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runner[
 
 @with_imap(off=[])
 async def list_email(imap: IMAP4_SSL) -> list[str]:
-    """Return senders of the last 10 unread messages, peeking to leave them unread."""
+    """Return `address subject` of the last 10 unread messages, peeking to leave them unread.
+
+    Each line suits hammer's spam argument.
+    """
     await imap.select('INBOX')
     numbers = (await imap.search('UNSEEN')).lines[0].decode().split()[-10:]
     lines = (
-        (await imap.fetch(','.join(numbers), 'BODY.PEEK[HEADER.FIELDS (FROM)]')).lines
+        (await imap.fetch(','.join(numbers), 'BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]')).lines
         if numbers
         else []
     )
     # TODO: cross reference senders against contacts, e.g. CardDAV
     return [
-        message['From']
-        for message in (message_from_bytes(line) for line in lines if isinstance(line, bytearray))
+        f'{parseaddr(message["From"])[1]} {message["Subject"] or ""}'.rstrip()
+        for message in (
+            message_from_bytes(line, policy=policy.default)
+            for line in lines
+            if isinstance(line, bytearray)
+        )
     ]
 
 
@@ -78,5 +86,5 @@ class Command(BaseCommand):
     help = __doc__
 
     def handle(self, *_args: object, **_options: object) -> None:
-        """Print one sender per line."""
+        """Print one `address subject` per line."""
         print(*run(list_email()) or [], sep='\n')  # noqa: T201 stdout is the interface
