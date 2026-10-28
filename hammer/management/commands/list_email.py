@@ -7,26 +7,26 @@ from functools import wraps
 from logging import getLogger
 from os import environ
 from re import split
-from typing import Any
+from typing import Any, Concatenate
 from urllib.parse import unquote, urlparse
 
 from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand
 
 logger = getLogger(__name__)
-type Runner[T] = Callable[[], Coroutine[Any, Any, T | None]]
-type Session[T] = Callable[[IMAP4_SSL], Coroutine[Any, Any, T]]
+type Runner[**P, T] = Callable[P, Coroutine[Any, Any, T | None]]
+type Session[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T]]
 
 
-def with_imap[T](off: T | None = None) -> Callable[[Session[T]], Runner[T]]:
+def with_imap[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runner[P, T]]:
     """Supply a client logged in to SPAMHAMMER_EMAIL_URLS, smoke tested by LOGIN.
 
     URLs, delimited by commas and/or whitespace, starting with 'off' return `off` instead.
     """
 
-    def decorate(function: Session[T]) -> Runner[T]:
+    def decorate(function: Session[P, T]) -> Runner[P, T]:
         @wraps(function)
-        async def inner() -> T | None:
+        async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
             urls = environ.get('SPAMHAMMER_EMAIL_URLS', 'off')
             match [url for url in split(r'[\s,]+', urls) if url]:
                 case [url] if url.startswith('off'):
@@ -43,7 +43,7 @@ def with_imap[T](off: T | None = None) -> Callable[[Session[T]], Runner[T]]:
                         raise ConnectionError(f'{parsed.hostname} LOGIN {login.result}')
                     logger.info('%s LOGIN OK', parsed.hostname)
                     try:
-                        return await function(imap)
+                        return await function(imap, *args, **kwargs)
                     finally:
                         await imap.logout()
                 case _:
