@@ -7,46 +7,77 @@ from logging import getLogger
 from os import environ
 from typing import Any, Concatenate
 
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import (
+    ClientSession,
+    ClientTimeout,
+    TraceConfig,
+    TraceRequestChunkSentParams,
+    TraceRequestEndParams,
+    TraceResponseChunkReceivedParams,
+)
 from aioimaplib import IMAP4_SSL
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandParser
 
-from hammer.management.commands.list_email import Runner, imap_session
+from hammer.management.commands.list_email import imap_session
 
 logger = getLogger(__name__)
+type Json = dict[str, Any]
+type JsonSession[**P] = Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, Json]]
 
 
-def json_session[**P, T](
-    variable: str, base_url: str, smoke_path: str, off: T | None = None
-) -> Callable[[Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, T]]], Runner[P, T]]:
-    """Supply a session bearing environ[variable], then the JSON from its GET smoke_path.
+async def log_request_chunk(
+    _session: ClientSession, _context: object, params: TraceRequestChunkSentParams
+) -> None:
+    logger.debug('%s %s > %s', params.method, params.url, params.chunk)
 
-    Keys starting with 'off', the default, return `off` instead.
+
+async def log_response_chunk(
+    _session: ClientSession, _context: object, params: TraceResponseChunkReceivedParams
+) -> None:
+    logger.debug('%s %s < %s', params.method, params.url, params.chunk)
+
+
+async def log_request_end(
+    _session: ClientSession, _context: object, params: TraceRequestEndParams
+) -> None:
+    logger.debug('%s %s st=%s', params.method, params.url, params.response.status)
+
+
+def json_session[**P](
+    variable: str, base_url: str, get_first: str, off_response: Json | None = None
+) -> Callable[[JsonSession[P]], Callable[P, Coroutine[Any, Any, Json]]]:
+    """Supply a session bearing environ[variable], then the JSON from its GET get_first.
+
+    Keys starting with 'off', the default, return off_response, or {} for None, instead.
     """
+    # head_first, mutually exclusive with get_first, could suit APIs lacking a useful first GET
 
-    def decorate(
-        function: Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, T]],
-    ) -> Runner[P, T]:
+    def decorate(function: JsonSession[P]) -> Callable[P, Coroutine[Any, Any, Json]]:
         @wraps(function)
-        async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
+        async def inner(*args: P.args, **kwargs: P.kwargs) -> Json:
             key = environ.get(variable, 'off')
             if not key:
                 raise ImproperlyConfigured(f'{variable} empty; unset or off skips')
             if key.startswith('off'):
                 logger.info('%s off', variable)
-                return off
+                return off_response or {}
+            trace = TraceConfig()
+            trace.on_request_chunk_sent.append(log_request_chunk)
+            trace.on_response_chunk_received.append(log_response_chunk)
+            trace.on_request_end.append(log_request_end)
             async with ClientSession(
                 base_url,
                 # Default User-Agents get 403 Forbidden from Spamhaus
                 headers={'Authorization': f'Bearer {key}', 'User-Agent': 'spamhammer'},
                 raise_for_status=True,
                 timeout=ClientTimeout(total=30),
+                trace_configs=[trace],
             ) as session:
-                async with session.get(smoke_path) as response:
-                    smoke = await response.json()
-                    logger.info('%s%s st=%s %s', base_url, smoke_path, response.status, smoke)
-                return await function(session, smoke, *args, **kwargs)
+                async with session.get(get_first) as response:
+                    first = await response.json()
+                    logger.info('%s%s st=%s %s', base_url, get_first, response.status, first)
+                return await function(session, first, *args, **kwargs)
 
         return inner
 
@@ -61,8 +92,9 @@ async def delete_and_filter(_imap: IMAP4_SSL, _sender: str) -> None:
 @json_session(
     'SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'lookup/threats-types'
 )
-async def report(_session: ClientSession, _threat_types: Any, _sender: str, _subject: str) -> None:
+async def report(_session: ClientSession, _threat_types: Any, _sender: str, _subject: str) -> Json:
     """TODO: report spam to Spamhaus."""
+    return {}
 
 
 class Command(BaseCommand):
