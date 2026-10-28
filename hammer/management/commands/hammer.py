@@ -19,14 +19,14 @@ logger = getLogger(__name__)
 
 def with_http[**P, T](
     variable: str, base_url: str, smoke_path: str, off: T | None = None
-) -> Callable[[Callable[Concatenate[ClientSession, P], Coroutine[Any, Any, T]]], Runner[P, T]]:
-    """Supply a session bearing environ[variable], smoke tested by GET smoke_path.
+) -> Callable[[Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, T]]], Runner[P, T]]:
+    """Supply a session bearing environ[variable], then the JSON from its GET smoke_path.
 
     Keys starting with 'off', the default, return `off` instead.
     """
 
     def decorate(
-        function: Callable[Concatenate[ClientSession, P], Coroutine[Any, Any, T]],
+        function: Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, T]],
     ) -> Runner[P, T]:
         @wraps(function)
         async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
@@ -44,14 +44,9 @@ def with_http[**P, T](
                 timeout=ClientTimeout(total=30),
             ) as session:
                 async with session.get(smoke_path) as response:
-                    logger.info(
-                        '%s%s st=%s %s',
-                        base_url,
-                        smoke_path,
-                        response.status,
-                        await response.json(),
-                    )
-                return await function(session, *args, **kwargs)
+                    smoke = await response.json()
+                    logger.info('%s%s st=%s %s', base_url, smoke_path, response.status, smoke)
+                return await function(session, smoke, *args, **kwargs)
 
         return inner
 
@@ -64,7 +59,7 @@ async def delete_and_filter(_imap: IMAP4_SSL, _sender: str) -> None:
 
 
 @with_http('SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'lookup/threats-types')
-async def report(_session: ClientSession, _sender: str, _subject: str) -> None:
+async def report(_session: ClientSession, _threat_types: Any, _sender: str, _subject: str) -> None:
     """TODO: report spam to Spamhaus."""
 
 
