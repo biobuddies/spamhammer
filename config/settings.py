@@ -109,3 +109,10 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
 MAILERS = {'default': {'BACKEND': 'django.core.mail.backends.console.EmailBackend'}}
+
+LOGGING = {
+    'disable_existing_loggers': False,
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'root': {'handlers': ['console'], 'level': 'INFO'},
+    'version': 1,
+}
