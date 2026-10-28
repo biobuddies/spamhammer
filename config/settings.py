@@ -10,7 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
-from os import environ
+from os import getenv
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -111,9 +111,10 @@ STATIC_URL = 'static/'
 
 MAILERS = {'default': {'BACKEND': 'django.core.mail.backends.console.EmailBackend'}}
 
+LOG_LEVEL = getenv('SPAMHAMMER_LOG_LEVEL', 'DEBUG' if DEBUG else 'INFO')
 LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {'console': {'class': 'logging.StreamHandler'}},
-    'root': {'handlers': ['console'], 'level': environ.get('LOG_LEVEL') or 'INFO'},
+    'root': {'handlers': ['console'], 'level': LOG_LEVEL},
     'version': 1,
 }

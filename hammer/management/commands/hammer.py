@@ -1,10 +1,11 @@
 """Report spam to Spamhaus, delete its sender's mail, and filter future mail; checks only so far."""
 
-from asyncio import run
+from asyncio import get_running_loop, run
 from collections.abc import Callable, Coroutine
 from functools import wraps
 from logging import getLogger
 from os import environ
+from types import SimpleNamespace
 from typing import Any, Concatenate
 
 from aiohttp import (
@@ -13,6 +14,7 @@ from aiohttp import (
     TraceConfig,
     TraceRequestChunkSentParams,
     TraceRequestEndParams,
+    TraceRequestStartParams,
     TraceResponseChunkReceivedParams,
 )
 from aioimaplib import IMAP4_SSL
@@ -26,22 +28,35 @@ type Json = dict[str, Any]
 type JsonSession[**P] = Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, Json]]
 
 
+async def log_request_start(
+    _session: ClientSession, context: SimpleNamespace, params: TraceRequestStartParams
+) -> None:
+    context.start = get_running_loop().time()
+    logger.debug('%s %s', params.method, params.url)
+
+
 async def log_request_chunk(
-    _session: ClientSession, _context: object, params: TraceRequestChunkSentParams
+    _session: ClientSession, _context: SimpleNamespace, params: TraceRequestChunkSentParams
 ) -> None:
     logger.debug('%s %s > %s', params.method, params.url, params.chunk)
 
 
 async def log_response_chunk(
-    _session: ClientSession, _context: object, params: TraceResponseChunkReceivedParams
+    _session: ClientSession, _context: SimpleNamespace, params: TraceResponseChunkReceivedParams
 ) -> None:
     logger.debug('%s %s < %s', params.method, params.url, params.chunk)
 
 
 async def log_request_end(
-    _session: ClientSession, _context: object, params: TraceRequestEndParams
+    _session: ClientSession, context: SimpleNamespace, params: TraceRequestEndParams
 ) -> None:
-    logger.debug('%s %s st=%s', params.method, params.url, params.response.status)
+    logger.debug(
+        '%s %s st=%s rt=%.3fs',
+        params.method,
+        params.url,
+        params.response.status,
+        get_running_loop().time() - context.start,
+    )
 
 
 def json_session[**P](
@@ -63,6 +78,7 @@ def json_session[**P](
                 logger.info('%s off', variable)
                 return off_response or {}
             trace = TraceConfig()
+            trace.on_request_start.append(log_request_start)
             trace.on_request_chunk_sent.append(log_request_chunk)
             trace.on_response_chunk_received.append(log_response_chunk)
             trace.on_request_end.append(log_request_end)
@@ -76,7 +92,7 @@ def json_session[**P](
             ) as session:
                 async with session.get(get_first) as response:
                     first = await response.json()
-                    logger.info('%s%s st=%s %s', base_url, get_first, response.status, first)
+                    logger.info('GET %s%s st=%s %s', base_url, get_first, response.status, first)
                 return await function(session, first, *args, **kwargs)
 
         return inner
