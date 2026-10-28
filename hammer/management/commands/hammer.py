@@ -10,6 +10,7 @@ from typing import Concatenate
 from urllib.request import Request, urlopen
 
 from aioimaplib import IMAP4_SSL
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandParser
 
 from hammer.management.commands.list_email import with_imap
@@ -30,6 +31,8 @@ def with_http[**P, T](
         @wraps(function)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T | None:
             key = environ.get(variable, 'off')
+            if not key:
+                raise ImproperlyConfigured(f'{variable} empty; unset or off skips')
             if key.startswith('off'):
                 logger.info('%s off', variable)
                 return off

@@ -11,6 +11,7 @@ from typing import Any, Concatenate
 from urllib.parse import unquote, urlparse
 
 from aioimaplib import IMAP4_SSL
+from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand
 
 logger = getLogger(__name__)
@@ -29,6 +30,8 @@ def with_imap[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runner[
         async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
             urls = environ.get('SPAMHAMMER_EMAIL_URLS', 'off')
             match [url for url in split(r'[\s,]+', urls) if url]:
+                case []:
+                    raise ImproperlyConfigured('SPAMHAMMER_EMAIL_URLS empty; unset or off skips')
                 case [url] if url.startswith('off'):
                     logger.info('SPAMHAMMER_EMAIL_URLS off')
                     return off
