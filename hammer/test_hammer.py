@@ -114,7 +114,9 @@ def test_report_submits_raw_message(caplog: LogCaptureFixture, monkeypatch: Monk
         async with TestServer(application) as server:
             await json_session(
                 'SPAMHAUS_API_KEY', str(server.make_url('/')), 'lookup/threats-types'
-            )(submit_spam)('spam@example.com', b'From: spam@example.com\r\n\r\nAct now')
+            )(submit_spam)(
+                'Unsolicited email from spam@example.com', b'From: spam@example.com\r\n\r\nAct now'
+            )
 
     monkeypatch.setenv('SPAMHAUS_API_KEY', 'key')
     with caplog.at_level(INFO):

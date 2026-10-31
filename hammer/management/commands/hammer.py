@@ -99,7 +99,7 @@ async def fetch_spam(imap: IMAP4_SSL, sender: str, subject: str) -> bytes | None
 
 
 async def submit_spam(
-    session: ClientSession, _threat_types: Any, sender: str, message: bytes | None
+    session: ClientSession, _threat_types: Any, reason: str, message: bytes | None
 ) -> Json:
     """Submit the raw message, if any, to Spamhaus as spam; 208 means already reported."""
     if message is None:
@@ -108,7 +108,7 @@ async def submit_spam(
     async with session.post(
         'submissions/add/email',
         json={
-            'reason': f'Unsolicited email from {sender}',
+            'reason': reason,
             'source': {'object': message.decode(errors='replace')},
             'threat_type': 'spam',
         },
@@ -127,10 +127,11 @@ class Command(BaseCommand):
     help = __doc__
 
     def add_arguments(self, parser: CommandParser) -> None:
-        """Take one spam argument."""
+        """Take one spam argument and an optional reason."""
         parser.add_argument('spam', help='sender address, then optionally a space and subject')
+        parser.add_argument('--reason', help='for Spamhaus; blank or omitted names the sender')
 
-    def handle(self, *_args: object, spam: str, **_options: object) -> None:
+    def handle(self, *_args: object, reason: str | None, spam: str, **_options: object) -> None:
         """Report matching INBOX messages to Spamhaus."""
         sender, _, subject = spam.partition(' ')
         logger.info('Hammering %s %r', sender, subject)
@@ -141,4 +142,5 @@ class Command(BaseCommand):
             else f'kill {getpid()}',
         )
         # TODO: delay so the workflow can be cancelled (undo) before acting
-        run(report(sender, run(fetch_spam(sender, subject))))
+        message = run(fetch_spam(sender, subject))
+        run(report(reason or f'Unsolicited email from {sender}', message))
