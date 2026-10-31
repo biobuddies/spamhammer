@@ -5,6 +5,7 @@ from collections.abc import Callable, Coroutine
 from functools import wraps
 from logging import getLogger
 from os import environ, getpid
+from time import sleep
 from types import SimpleNamespace
 from typing import Any, Concatenate
 
@@ -127,11 +128,16 @@ class Command(BaseCommand):
     help = __doc__
 
     def add_arguments(self, parser: CommandParser) -> None:
-        """Take one spam argument and an optional reason."""
+        """Take one spam argument, an optional reason, and a cancellation window."""
         parser.add_argument('spam', help='sender address, then optionally a space and subject')
+        parser.add_argument(
+            '--delay-seconds', default=60, help='to cancel before reporting', type=int
+        )
         parser.add_argument('--reason', help='for Spamhaus; blank or omitted names the sender')
 
-    def handle(self, *_args: object, reason: str | None, spam: str, **_options: object) -> None:
+    def handle(
+        self, *_args: object, delay_seconds: int, reason: str | None, spam: str, **_options: object
+    ) -> None:
         """Report matching INBOX messages to Spamhaus."""
         sender, _, subject = spam.partition(' ')
         logger.info('Hammering %s %r', sender, subject)
@@ -141,6 +147,7 @@ class Command(BaseCommand):
             if (run_id := environ.get('GITHUB_RUN_ID'))
             else f'kill {getpid()}',
         )
-        # TODO: delay so the workflow can be cancelled (undo) before acting
-        message = run(fetch_spam(sender, subject))
+        if message := run(fetch_spam(sender, subject)):
+            logger.info('Reporting in %d seconds', delay_seconds)
+            sleep(delay_seconds)
         run(report(reason or f'Unsolicited email from {sender}', message))
