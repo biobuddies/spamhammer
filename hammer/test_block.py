@@ -30,3 +30,10 @@ def test_block_off(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
     with caplog.at_level(INFO):
         call_command('block', 'Received', 'mta.exacttarget.com')
     assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
+
+
+def test_block_backtest_off(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.delenv('SPAMHAMMER_EMAIL_URLS', raising=False)
+    with caplog.at_level(INFO):
+        call_command('block', 'Received', 'mta.exacttarget.com', '--backtest')
+    assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
