@@ -1,9 +1,10 @@
-"""Report spam to Spamhaus; deleting its sender's mail and filtering future mail follow."""
+"""Report spam to Spamhaus."""
 
-from asyncio import get_running_loop, run
+from asyncio import get_running_loop, run, sleep
 from collections.abc import Callable, Coroutine
 from email import message_from_bytes, policy
 from email.utils import parseaddr
+from email.utils import quote as escape_quotes
 from functools import wraps
 from logging import getLogger
 from os import environ, getpid
@@ -25,7 +26,7 @@ from hammer.management.commands.list_email import imap_session
 
 logger = getLogger(__name__)
 type Json = dict[str, Any]
-type JsonSession[**P] = Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, Json]]
+type JsonSession[**P] = Callable[Concatenate[ClientSession, P], Coroutine[Any, Any, Json]]
 
 
 async def time_request(
@@ -47,13 +48,12 @@ async def log_request_end(
 
 
 def json_session[**P](
-    variable: str, base_url: str, get_first: str, off_response: Json | None = None
+    variable: str, base_url: str, check_path: str
 ) -> Callable[[JsonSession[P]], Callable[P, Coroutine[Any, Any, Json]]]:
-    """Supply a session bearing environ[variable], then the JSON from its GET get_first.
+    """Supply an authenticated session after a smoke-test GET.
 
-    Keys starting with 'off', the default, return off_response, or {} for None, instead.
+    Keys starting with 'off', the default, return {} instead.
     """
-    # head_first, mutually exclusive with get_first, could suit APIs lacking a useful first GET
 
     def decorate(function: JsonSession[P]) -> Callable[P, Coroutine[Any, Any, Json]]:
         @wraps(function)
@@ -63,7 +63,7 @@ def json_session[**P](
                 raise ImproperlyConfigured(f'{variable} empty; unset or off skips')
             if key.startswith('off'):
                 logger.info('%s off', variable)
-                return off_response or {}
+                return {}
             trace = TraceConfig()
             trace.on_request_start.append(time_request)
             trace.on_request_end.append(log_request_end)
@@ -75,9 +75,9 @@ def json_session[**P](
                 timeout=ClientTimeout(total=30),
                 trace_configs=[trace],
             ) as session:
-                async with session.get(get_first) as response:
-                    first = await response.json()
-                return await function(session, first, *args, **kwargs)
+                async with session.get(check_path) as response:
+                    await response.read()
+                return await function(session, *args, **kwargs)
 
         return inner
 
@@ -86,13 +86,13 @@ def json_session[**P](
 
 def quote(text: str) -> str:
     """Quote an IMAP string."""
-    return '"%s"' % text.replace('\\', '\\\\').replace('"', '\\"')
+    return f'"{escape_quotes(text)}"'
 
 
 @imap_session()
 async def fetch_spam(imap: IMAP4_SSL, sender: str, subject: str) -> bytes | None:
-    """Return the latest raw INBOX message from sender, and with subject if given, left unread."""
-    # TODO: delete the sender's mail and add a Sieve rule blocking them
+    """Return the latest raw inbox message from sender, and with subject if given, left unread."""
+    # TODO: mark read and move to Junk
     await imap.select('INBOX')
     criteria = ('FROM', quote(sender), *(('SUBJECT', quote(subject)) if subject else ()))
     numbers = (await imap.search(*criteria)).lines[0].decode().split()
@@ -111,9 +111,7 @@ async def fetch_spam(imap: IMAP4_SSL, sender: str, subject: str) -> bytes | None
     )
 
 
-async def submit_spam(
-    session: ClientSession, _threat_types: Any, reason: str, message: bytes | None
-) -> Json:
+async def submit_spam(session: ClientSession, reason: str, message: bytes | None) -> Json:
     """Submit the raw message, if any, to Spamhaus as spam; 208 means already reported."""
     if message is None:
         logger.info('No INBOX message matches')
@@ -132,20 +130,37 @@ async def submit_spam(
 
 
 report = json_session(
-    'SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'lookup/threats-types'
+    'SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'submissions/list'
 )(submit_spam)
+
+
+async def report_after_delay(
+    sender: str, subject: str, reason: str, delay_seconds: int
+) -> bytes | None:
+    """Wait asynchronously before reporting a matching message; return it for further reporting."""
+    message = await fetch_spam(sender, subject)
+    if message:
+        logger.info('Reporting in %d seconds', delay_seconds)
+        await sleep(delay_seconds)
+    await report(reason, message)
+    return message
 
 
 class Command(BaseCommand):
     help = __doc__
 
     def add_arguments(self, parser: CommandParser) -> None:
-        """Take one spam argument and an optional reason."""
+        """Take one spam argument, an optional reason, and a cancellation window."""
         parser.add_argument('spam', help='sender address, then optionally a space and subject')
+        parser.add_argument(
+            '--delay-seconds', default=60, help='to cancel before reporting', type=int
+        )
         parser.add_argument('--reason', help='for Spamhaus; blank or omitted names the sender')
 
-    def handle(self, *_args: object, reason: str | None, spam: str, **_options: object) -> None:
-        """Report matching INBOX messages to Spamhaus."""
+    def handle(
+        self, *_args: object, delay_seconds: int, reason: str | None, spam: str, **_options: object
+    ) -> None:
+        """Report matching inbox messages to Spamhaus."""
         sender, _, subject = spam.partition(' ')
         logger.info('Hammering %s %r', sender, subject)
         logger.info(
@@ -154,6 +169,8 @@ class Command(BaseCommand):
             if (run_id := environ.get('GITHUB_RUN_ID'))
             else f'kill {getpid()}',
         )
-        # TODO: delay so the workflow can be cancelled (undo) before acting
-        message = run(fetch_spam(sender, subject))
-        run(report(reason or f'Unsolicited email from {sender}', message))
+        run(
+            report_after_delay(
+                sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
+            )
+        )
