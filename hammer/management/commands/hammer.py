@@ -4,7 +4,7 @@ from asyncio import get_running_loop, run
 from collections.abc import Callable, Coroutine
 from functools import wraps
 from logging import getLogger
-from os import environ
+from os import environ, getpid
 from types import SimpleNamespace
 from typing import Any, Concatenate
 
@@ -124,6 +124,12 @@ class Command(BaseCommand):
         """Smoke test IMAP and Spamhaus connectivity."""
         sender, _, subject = spam.partition(' ')
         logger.info('Hammering %s %r', sender, subject)
+        logger.info(
+            'Cancel: %s',
+            f'gh run cancel {run_id} --repo {environ["GITHUB_REPOSITORY"]}'
+            if (run_id := environ.get('GITHUB_RUN_ID'))
+            else f'kill {getpid()}',
+        )
         # TODO: delay so the workflow can be cancelled (undo) before acting
         run(delete_and_filter(sender))
         run(report(sender, subject))
