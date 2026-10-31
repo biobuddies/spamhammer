@@ -12,10 +12,8 @@ from aiohttp import (
     ClientSession,
     ClientTimeout,
     TraceConfig,
-    TraceRequestChunkSentParams,
     TraceRequestEndParams,
     TraceRequestStartParams,
-    TraceResponseChunkReceivedParams,
 )
 from aioimaplib import IMAP4_SSL
 from django.core.exceptions import ImproperlyConfigured
@@ -28,29 +26,16 @@ type Json = dict[str, Any]
 type JsonSession[**P] = Callable[Concatenate[ClientSession, Any, P], Coroutine[Any, Any, Json]]
 
 
-async def log_request_start(
-    _session: ClientSession, context: SimpleNamespace, params: TraceRequestStartParams
+async def time_request(
+    _session: ClientSession, context: SimpleNamespace, _params: TraceRequestStartParams
 ) -> None:
     context.start = get_running_loop().time()
-    logger.debug('%s %s', params.method, params.url)
-
-
-async def log_request_chunk(
-    _session: ClientSession, _context: SimpleNamespace, params: TraceRequestChunkSentParams
-) -> None:
-    logger.debug('%s %s > %s', params.method, params.url, params.chunk)
-
-
-async def log_response_chunk(
-    _session: ClientSession, _context: SimpleNamespace, params: TraceResponseChunkReceivedParams
-) -> None:
-    logger.debug('%s %s < %s', params.method, params.url, params.chunk)
 
 
 async def log_request_end(
     _session: ClientSession, context: SimpleNamespace, params: TraceRequestEndParams
 ) -> None:
-    logger.debug(
+    logger.info(
         '%s %s st=%s rt=%.3fs',
         params.method,
         params.url,
@@ -78,9 +63,7 @@ def json_session[**P](
                 logger.info('%s off', variable)
                 return off_response or {}
             trace = TraceConfig()
-            trace.on_request_start.append(log_request_start)
-            trace.on_request_chunk_sent.append(log_request_chunk)
-            trace.on_response_chunk_received.append(log_response_chunk)
+            trace.on_request_start.append(time_request)
             trace.on_request_end.append(log_request_end)
             async with ClientSession(
                 base_url,
@@ -92,7 +75,6 @@ def json_session[**P](
             ) as session:
                 async with session.get(get_first) as response:
                     first = await response.json()
-                    logger.info('GET %s%s st=%s %s', base_url, get_first, response.status, first)
                 return await function(session, first, *args, **kwargs)
 
         return inner

@@ -1,11 +1,16 @@
 """Exercise hammer's graceful degradation without network access."""
 
-from logging import INFO
+from asyncio import run
+from logging import DEBUG, INFO
 from os import getpid
 
+from aiohttp import ClientSession, web
+from aiohttp.test_utils import TestServer
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
+
+from hammer.management.commands.hammer import json_session
 
 
 @mark.parametrize('key', ('off', 'off until I find it'))
@@ -52,3 +57,32 @@ def test_hammer_logs_kill_command(caplog: LogCaptureFixture, monkeypatch: Monkey
     with caplog.at_level(INFO):
         call_command('hammer', 'spam@example.com')
     assert f'Cancel: kill {getpid()}' in caplog.text
+
+
+def test_json_session_logs_each_request_once(
+    caplog: LogCaptureFixture, monkeypatch: MonkeyPatch
+) -> None:
+    monkeypatch.setenv('TEST_API_KEY', 'key')
+    application = web.Application()
+
+    async def list_types(_request: web.Request) -> web.Response:
+        return web.json_response([])
+
+    application.router.add_get('/types', list_types)
+
+    async def request_types() -> None:
+        async with TestServer(application) as server:
+
+            @json_session('TEST_API_KEY', str(server.make_url('/')), 'types')
+            async def inner(_session: ClientSession, _types: object) -> dict:
+                return {}
+
+            await inner()
+
+    with caplog.at_level(DEBUG):
+        run(request_types())
+    assert [
+        record.levelno
+        for record in caplog.records
+        if record.name.startswith('hammer') and '/types' in record.getMessage()
+    ] == [INFO]
