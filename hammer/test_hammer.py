@@ -10,7 +10,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
-from hammer.management.commands.hammer import json_session
+from hammer.management.commands.hammer import json_session, quote, submit_spam
 
 
 @mark.parametrize('key', ('off', 'off until I find it'))
@@ -86,3 +86,44 @@ def test_json_session_logs_each_request_once(
         for record in caplog.records
         if record.name.startswith('hammer') and '/types' in record.getMessage()
     ] == [INFO]
+
+
+@mark.parametrize(
+    ('text', 'quoted'),
+    (('Act now', '"Act now"'), ('Say "hi"', '"Say \\"hi\\""'), ('C:\\', '"C:\\\\"')),
+)
+def test_quote(quoted: str, text: str) -> None:
+    assert quote(text) == quoted
+
+
+def test_report_submits_raw_message(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+    submissions = []
+
+    async def list_types(_request: web.Request) -> web.Response:
+        return web.json_response([{'code': 'spam', 'type': 'email'}])
+
+    async def add_email(request: web.Request) -> web.Response:
+        submissions.append(await request.json())
+        return web.json_response({'id': 'abc'})
+
+    application = web.Application()
+    application.router.add_get('/lookup/threats-types', list_types)
+    application.router.add_post('/submissions/add/email', add_email)
+
+    async def submit() -> None:
+        async with TestServer(application) as server:
+            await json_session(
+                'SPAMHAUS_API_KEY', str(server.make_url('/')), 'lookup/threats-types'
+            )(submit_spam)('spam@example.com', b'From: spam@example.com\r\n\r\nAct now')
+
+    monkeypatch.setenv('SPAMHAUS_API_KEY', 'key')
+    with caplog.at_level(INFO):
+        run(submit())
+    assert submissions == [
+        {
+            'reason': 'Unsolicited email from spam@example.com',
+            'source': {'object': 'From: spam@example.com\r\n\r\nAct now'},
+            'threat_type': 'spam',
+        }
+    ]
+    assert 'Spamhaus abc' in caplog.text

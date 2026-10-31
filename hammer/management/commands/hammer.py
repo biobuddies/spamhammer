@@ -1,4 +1,4 @@
-"""Report spam to Spamhaus, delete its sender's mail, and filter future mail; checks only so far."""
+"""Report spam to Spamhaus; deleting its sender's mail and filtering future mail follow."""
 
 from asyncio import get_running_loop, run
 from collections.abc import Callable, Coroutine
@@ -82,17 +82,45 @@ def json_session[**P](
     return decorate
 
 
+def quote(text: str) -> str:
+    """Quote an IMAP string."""
+    return '"%s"' % text.replace('\\', '\\\\').replace('"', '\\"')
+
+
 @imap_session()
-async def delete_and_filter(_imap: IMAP4_SSL, _sender: str) -> None:
-    """TODO: delete the sender's mail and add a Sieve rule blocking them."""
+async def fetch_spam(imap: IMAP4_SSL, sender: str, subject: str) -> bytes | None:
+    """Return the latest raw INBOX message from sender, and with subject if given, left unread."""
+    # TODO: delete the sender's mail and add a Sieve rule blocking them
+    await imap.select('INBOX')
+    criteria = ('FROM', quote(sender), *(('SUBJECT', quote(subject)) if subject else ()))
+    numbers = (await imap.search(*criteria)).lines[0].decode().split()
+    lines = (await imap.fetch(numbers[-1], 'BODY.PEEK[]')).lines if numbers else []
+    return next((bytes(line) for line in lines if isinstance(line, bytearray)), None)
 
 
-@json_session(
+async def submit_spam(
+    session: ClientSession, _threat_types: Any, sender: str, message: bytes | None
+) -> Json:
+    """Submit the raw message, if any, to Spamhaus as spam; 208 means already reported."""
+    if message is None:
+        logger.info('No INBOX message matches')
+        return {}
+    async with session.post(
+        'submissions/add/email',
+        json={
+            'reason': f'Unsolicited email from {sender}',
+            'source': {'object': message.decode(errors='replace')},
+            'threat_type': 'spam',
+        },
+    ) as response:
+        submission = await response.json()
+    logger.info('Spamhaus %s', submission.get('id', response.status))
+    return submission
+
+
+report = json_session(
     'SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'lookup/threats-types'
-)
-async def report(_session: ClientSession, _threat_types: Any, _sender: str, _subject: str) -> Json:
-    """TODO: report spam to Spamhaus."""
-    return {}
+)(submit_spam)
 
 
 class Command(BaseCommand):
@@ -103,7 +131,7 @@ class Command(BaseCommand):
         parser.add_argument('spam', help='sender address, then optionally a space and subject')
 
     def handle(self, *_args: object, spam: str, **_options: object) -> None:
-        """Smoke test IMAP and Spamhaus connectivity."""
+        """Report matching INBOX messages to Spamhaus."""
         sender, _, subject = spam.partition(' ')
         logger.info('Hammering %s %r', sender, subject)
         logger.info(
@@ -113,5 +141,4 @@ class Command(BaseCommand):
             else f'kill {getpid()}',
         )
         # TODO: delay so the workflow can be cancelled (undo) before acting
-        run(delete_and_filter(sender))
-        run(report(sender, subject))
+        run(report(sender, run(fetch_spam(sender, subject))))
