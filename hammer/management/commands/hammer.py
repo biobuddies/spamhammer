@@ -1,4 +1,4 @@
-"""Report spam to Spamhaus."""
+"""Report spam to Spamhaus and its sending platform."""
 
 from asyncio import get_running_loop, run, sleep
 from collections.abc import Callable, Coroutine
@@ -22,6 +22,7 @@ from aioimaplib import IMAP4_SSL
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandParser
 
+from hammer.abuse import email_reports
 from hammer.management.commands.list_email import imap_session
 
 logger = getLogger(__name__)
@@ -160,7 +161,7 @@ class Command(BaseCommand):
     def handle(
         self, *_args: object, delay_seconds: int, reason: str | None, spam: str, **_options: object
     ) -> None:
-        """Report matching inbox messages to Spamhaus."""
+        """Report the matching inbox message to Spamhaus and its sending platform."""
         sender, _, subject = spam.partition(' ')
         logger.info('Hammering %s %r', sender, subject)
         logger.info(
@@ -169,8 +170,10 @@ class Command(BaseCommand):
             if (run_id := environ.get('GITHUB_RUN_ID'))
             else f'kill {getpid()}',
         )
-        run(
+        message = run(
             report_after_delay(
                 sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
             )
         )
+        if message:
+            email_reports(message)
