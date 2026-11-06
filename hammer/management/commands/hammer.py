@@ -19,6 +19,7 @@ from aiohttp import (
 )
 from aioimaplib import IMAP4_SSL
 from django.core.exceptions import ImproperlyConfigured
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandParser
 
 from hammer.management.commands.list_email import imap_session
@@ -128,4 +129,5 @@ class Command(BaseCommand):
         )
         # TODO: delay so the workflow can be cancelled (undo) before acting
         run(delete_and_filter(sender))
-        run(report(sender, subject))
+        if run(report(sender, subject)):
+            call_command('junk_email', sender, stdout=self.stdout)
