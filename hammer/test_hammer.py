@@ -1,5 +1,3 @@
-"""Exercise hammer's graceful degradation without network access."""
-
 from logging import INFO
 from os import getpid
 

@@ -3,6 +3,7 @@
 from asyncio import run
 from email import message_from_bytes, policy
 from email.utils import parseaddr
+from email.utils import quote as escape_quotes
 
 from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandError, CommandParser
@@ -16,8 +17,7 @@ async def fetch_email(imap: IMAP4_SSL, sender: str, subject: str = '') -> bytes:
     selected = await imap.select('INBOX')
     if selected.result != 'OK':
         raise CommandError(f'INBOX SELECT {selected.result}')
-    quoted_sender = sender.replace('\\', '\\\\').replace('"', '\\"')
-    found = await imap.uid_search('FROM', f'"{quoted_sender}"')
+    found = await imap.uid_search('FROM', f'"{escape_quotes(sender)}"')
     if found.result != 'OK':
         raise CommandError(f'UID SEARCH {found.result}')
     numbers = found.lines[0].decode().split()
