@@ -3,8 +3,7 @@
 from asyncio import get_running_loop, run, sleep
 from collections.abc import Callable, Coroutine
 from email import message_from_bytes, policy
-from email.utils import parseaddr
-from email.utils import quote as escape_quotes
+from email.utils import parseaddr, quote
 from functools import wraps
 from logging import getLogger
 from os import environ, getpid
@@ -84,17 +83,15 @@ def json_session[**P](
     return decorate
 
 
-def quote(text: str) -> str:
-    """Quote an IMAP string."""
-    return f'"{escape_quotes(text)}"'
-
-
 @imap_session()
 async def fetch_spam(imap: IMAP4_SSL, sender: str, subject: str) -> bytes | None:
     """Return the latest raw inbox message from sender, and with subject if given, left unread."""
-    # TODO: mark read and move to Junk
     await imap.select('INBOX')
-    criteria = ('FROM', quote(sender), *(('SUBJECT', quote(subject)) if subject else ()))
+    criteria = (
+        'FROM',
+        f'"{quote(sender)}"',
+        *(('SUBJECT', f'"{quote(subject)}"') if subject else ()),
+    )
     numbers = (await imap.search(*criteria)).lines[0].decode().split()
     lines = (await imap.fetch(','.join(numbers), 'BODY.PEEK[]')).lines if numbers else []
     return next(

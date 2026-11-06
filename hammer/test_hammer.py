@@ -12,7 +12,7 @@ from django.core.management import call_command
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
 from hammer.management.commands import hammer
-from hammer.management.commands.hammer import fetch_spam, json_session, quote, submit_spam
+from hammer.management.commands.hammer import fetch_spam, json_session, submit_spam
 
 
 @mark.parametrize('key', ('off', 'off until I find it'))
@@ -88,14 +88,6 @@ def test_json_session_logs_each_request_once(
         for record in caplog.records
         if record.name.startswith('hammer') and '/submissions/list' in record.getMessage()
     ] == [INFO]
-
-
-@mark.parametrize(
-    ('text', 'quoted'),
-    (('Act now', '"Act now"'), ('Say "hi"', '"Say \\"hi\\""'), ('C:\\', '"C:\\\\"')),
-)
-def test_quote(quoted: str, text: str) -> None:
-    assert quote(text) == quoted
 
 
 def test_report_submits_raw_message(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
