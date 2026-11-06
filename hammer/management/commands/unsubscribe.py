@@ -6,6 +6,7 @@ from re import findall
 from urllib.parse import urlsplit
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, DummyCookieJar
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 
@@ -83,3 +84,4 @@ class Command(BaseCommand):
         sender, _, subject = email.partition(' ')
         if result := run(unsubscribe(sender, subject, dry_run)):
             self.stdout.write(result)
+            call_command('junk_email', sender, dry_run=dry_run, stdout=self.stdout)

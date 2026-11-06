@@ -105,4 +105,29 @@ def test_unsubscribe_dry_run() -> None:
         call_command('unsubscribe', 'sender@example.com Offer', dry_run=True, stdout=output)
     fetch.assert_awaited_once_with('sender@example.com', 'Offer')
     session.assert_not_called()
-    assert output.getvalue() == 'Would request unsubscribe for sender@example.com via example.com\n'
+    assert output.getvalue() == (
+        'Would request unsubscribe for sender@example.com via example.com\n'
+        'Would move 0 messages from sender@example.com to Junk\n'
+    )
+
+
+@mark.parametrize('accepted', (True, False))
+def test_unsubscribe_cleanup_only_after_success(accepted: bool) -> None:
+    request = (
+        AsyncMock(return_value='Accepted')
+        if accepted
+        else AsyncMock(side_effect=CommandError('Failed'))
+    )
+    with (
+        patch('hammer.management.commands.unsubscribe.unsubscribe', new=request),
+        patch('hammer.management.commands.unsubscribe.call_command') as cleanup,
+    ):
+        if accepted:
+            call_command('unsubscribe', 'sender@example.com Offer', stdout=StringIO())
+        else:
+            with raises(CommandError, match='Failed'):
+                call_command('unsubscribe', 'sender@example.com Offer')
+    assert cleanup.call_count == int(accepted)
+    if accepted:
+        assert cleanup.call_args.args == ('junk_email', 'sender@example.com')
+        assert cleanup.call_args.kwargs['dry_run'] is False
