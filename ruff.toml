@@ -1,0 +1,4 @@
+extend = 'pyproject.toml'
+
+[lint.extend-per-file-ignores]
+'**/test_*.py' = ['D100']
