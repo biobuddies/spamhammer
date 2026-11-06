@@ -34,7 +34,7 @@ def insert_rule(script: str, header: str, value: str, folder: str) -> str:
 
 @imap_session(off=Counter())
 async def count_matches(imap: IMAP4_SSL, header: str, value: str) -> Counter[str]:
-    """Count INBOX senders whose header contains value, as the rule would match."""
+    """Count inbox senders whose header contains value, as the rule would match."""
     await imap.select('INBOX')
     numbers = (await imap.search('HEADER', quote(header), quote(value))).lines[0].decode().split()
     lines = (
@@ -97,9 +97,10 @@ class Command(BaseCommand):
                 return
             if not client.checkscript(updated):
                 raise ValueError(f'Sieve rejected:\n{updated}')
-            client.putscript(name, updated)
-            if not active:
-                client.setactive(name)
+            if not client.putscript(name, updated):
+                raise ConnectionError(f'ManageSieve PUTSCRIPT {name} failed')
+            if not active and not client.setactive(name):
+                raise ConnectionError(f'ManageSieve SETACTIVE {name} failed')
             logger.info('Sieve %s after:\n%s', name, updated)
         finally:
             client.logout()
