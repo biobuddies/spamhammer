@@ -1,10 +1,13 @@
 """Exercise Sieve rule insertion without a ManageSieve server."""
 
+from email import message_from_bytes, policy
 from logging import INFO
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from django.core.management import call_command
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
+from sievelib.parser import Parser
 
 from hammer.management.commands import block
 from hammer.management.commands.block import insert_rule
@@ -53,3 +56,16 @@ def test_block_surfaces_failed_writes(monkeypatch: MonkeyPatch, operation: str) 
     client.logout.assert_called_once()
     if operation == 'putscript':
         client.setactive.assert_not_called()
+
+
+def test_insert_rule_parses_and_matches_real_spam() -> None:
+    spam = message_from_bytes(
+        (Path(__file__).parent / 'spam' / 'thealphapaths.eml').read_bytes(), policy=policy.default
+    )
+    roundcube = (
+        '# roundcube\nrequire ["fileinto","imap4flags"];\n'
+        '# rule:[Spam: Move]\nif anyof (header :contains "x-spam-level" "***")\n'
+        '{\n\tfileinto "Spam";\n}\n'
+    )
+    assert Parser().parse(insert_rule(roundcube, 'From', 'thealphapaths.com', 'Spam').encode())
+    assert 'thealphapaths.com' in spam['From']
