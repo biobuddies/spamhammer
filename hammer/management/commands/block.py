@@ -2,6 +2,8 @@
 
 from asyncio import run
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
 from email import message_from_bytes, policy
 from email.utils import parseaddr
 from logging import getLogger
@@ -30,6 +32,26 @@ def insert_rule(script: str, header: str, value: str, folder: str) -> str:
     body = sub(r'\A(?:\s*(?:#[^\n]*\n|require\s[^;]*;))*\s*', '', script, count=1)
     requires = len(script) - len(body)
     return f'require "fileinto";\n{script[:requires]}{rule}{body}'
+
+
+@contextmanager
+def sieve_client() -> Iterator[Client | None]:
+    """Supply a ManageSieve client logged in with SPAMHAMMER_EMAIL_URLS; None when off."""
+    if not (parsed := read_email_url()):
+        yield None
+        return
+    client = Client(parsed.hostname or '')
+    if not client.connect(
+        unquote(parsed.username or ''),
+        unquote(parsed.password or ''),
+        authmech='PLAIN',
+        starttls=True,
+    ):
+        raise ConnectionError(f'{parsed.hostname} ManageSieve login failed')
+    try:
+        yield client
+    finally:
+        client.logout()
 
 
 @imap_session(off=Counter())
@@ -77,17 +99,9 @@ class Command(BaseCommand):
                 sep='\n',
             )
             return
-        if not (parsed := read_email_url()):
-            return
-        client = Client(parsed.hostname or '')
-        if not client.connect(
-            unquote(parsed.username or ''),
-            unquote(parsed.password or ''),
-            authmech='PLAIN',
-            starttls=True,
-        ):
-            raise ConnectionError(f'{parsed.hostname} ManageSieve login failed')
-        try:
+        with sieve_client() as client:
+            if not client:
+                return
             active, _inactive = client.listscripts()
             name = active or 'spamhammer'
             script = client.getscript(name) if active else ''
@@ -102,5 +116,3 @@ class Command(BaseCommand):
             if not active and not client.setactive(name):
                 raise ConnectionError(f'ManageSieve SETACTIVE {name} failed')
             logger.info('Sieve %s after:\n%s', name, updated)
-        finally:
-            client.logout()
