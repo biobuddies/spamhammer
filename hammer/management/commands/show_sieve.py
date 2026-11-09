@@ -14,7 +14,7 @@ class Command(BaseCommand):
             if not client:
                 return
             active, inactive = client.listscripts()
-            print(  # noqa: T201 stdout is the interface
+            print(
                 *(
                     f'# {name}{" (active)" if name == active else ""}\n{client.getscript(name)}'
                     for name in ([active] if active else []) + sorted(inactive)

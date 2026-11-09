@@ -91,4 +91,4 @@ class Command(BaseCommand):
 
     def handle(self, *_args: object, **_options: object) -> None:
         """Print one `address subject` per line."""
-        print(*run(list_email()) or [], sep='\n')  # noqa: T201 stdout is the interface
+        print(*run(list_email()) or [], sep='\n')

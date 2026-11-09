@@ -93,7 +93,7 @@ class Command(BaseCommand):
         """Insert the rule into the active Sieve script, or a new spamhammer one."""
         if backtest:
             senders = run(count_matches(header, value)) or Counter()
-            print(  # noqa: T201 stdout is the interface
+            print(
                 f'{senders.total()} INBOX messages',
                 *(f'{count} {sender}' for sender, count in senders.most_common()),
                 sep='\n',
