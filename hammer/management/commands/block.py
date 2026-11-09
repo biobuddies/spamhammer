@@ -2,12 +2,13 @@
 
 from asyncio import run
 from collections import Counter
-from collections.abc import Iterator
-from contextlib import contextmanager
+from collections.abc import Callable
 from email import message_from_bytes, policy
 from email.utils import parseaddr
+from functools import wraps
 from logging import getLogger
 from re import sub
+from typing import Concatenate
 from urllib.parse import unquote
 
 from aioimaplib import IMAP4_SSL
@@ -18,6 +19,7 @@ from hammer.management.commands.hammer import quote
 from hammer.management.commands.list_email import imap_session, read_email_url
 
 logger = getLogger(__name__)
+type Sieve[**P, T] = Callable[Concatenate[Client, P], T]
 
 
 def insert_rule(script: str, header: str, value: str, folder: str) -> str:
@@ -34,24 +36,49 @@ def insert_rule(script: str, header: str, value: str, folder: str) -> str:
     return f'require "fileinto";\n{script[:requires]}{rule}{body}'
 
 
-@contextmanager
-def sieve_client() -> Iterator[Client | None]:
-    """Supply a ManageSieve client logged in with SPAMHAMMER_EMAIL_URLS; None when off."""
-    if not (parsed := read_email_url()):
-        yield None
+def sieve_session[**P, T](off: T | None = None) -> Callable[[Sieve[P, T]], Callable[P, T | None]]:
+    """Supply a ManageSieve client logged in with SPAMHAMMER_EMAIL_URLS; `off` when off."""
+
+    def decorate(function: Sieve[P, T]) -> Callable[P, T | None]:
+        @wraps(function)
+        def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
+            if not (parsed := read_email_url()):
+                return off
+            client = Client(parsed.hostname or '')
+            if not client.connect(
+                unquote(parsed.username or ''),
+                unquote(parsed.password or ''),
+                authmech='PLAIN',
+                starttls=True,
+            ):
+                raise ConnectionError(f'{parsed.hostname} ManageSieve login failed')
+            try:
+                return function(client, *args, **kwargs)
+            finally:
+                client.logout()
+
+        return inner
+
+    return decorate
+
+
+@sieve_session()
+def update_script(client: Client, header: str, value: str, folder: str) -> None:
+    """Insert the rule into the active Sieve script, or a new spamhammer one."""
+    active, _inactive = client.listscripts()
+    name = active or 'spamhammer'
+    script = client.getscript(name) if active else ''
+    logger.info('Sieve %s before:\n%s', name, script)
+    if (updated := insert_rule(script, header, value, folder)) == script:
+        logger.info('Rule already present')
         return
-    client = Client(parsed.hostname or '')
-    if not client.connect(
-        unquote(parsed.username or ''),
-        unquote(parsed.password or ''),
-        authmech='PLAIN',
-        starttls=True,
-    ):
-        raise ConnectionError(f'{parsed.hostname} ManageSieve login failed')
-    try:
-        yield client
-    finally:
-        client.logout()
+    if not client.checkscript(updated):
+        raise ValueError(f'Sieve rejected:\n{updated}')
+    if not client.putscript(name, updated):
+        raise ConnectionError(f'ManageSieve PUTSCRIPT {name} failed')
+    if not active and not client.setactive(name):
+        raise ConnectionError(f'ManageSieve SETACTIVE {name} failed')
+    logger.info('Sieve %s after:\n%s', name, updated)
 
 
 @imap_session(off=Counter())
@@ -90,7 +117,7 @@ class Command(BaseCommand):
         value: str,
         **_options: object,
     ) -> None:
-        """Insert the rule into the active Sieve script, or a new spamhammer one."""
+        """Count matches, or insert the rule."""
         if backtest:
             senders = run(count_matches(header, value)) or Counter()
             print(
@@ -99,20 +126,4 @@ class Command(BaseCommand):
                 sep='\n',
             )
             return
-        with sieve_client() as client:
-            if not client:
-                return
-            active, _inactive = client.listscripts()
-            name = active or 'spamhammer'
-            script = client.getscript(name) if active else ''
-            logger.info('Sieve %s before:\n%s', name, script)
-            if (updated := insert_rule(script, header, value, folder)) == script:
-                logger.info('Rule already present')
-                return
-            if not client.checkscript(updated):
-                raise ValueError(f'Sieve rejected:\n{updated}')
-            if not client.putscript(name, updated):
-                raise ConnectionError(f'ManageSieve PUTSCRIPT {name} failed')
-            if not active and not client.setactive(name):
-                raise ConnectionError(f'ManageSieve SETACTIVE {name} failed')
-            logger.info('Sieve %s after:\n%s', name, updated)
+        update_script(header, value, folder)
