@@ -34,19 +34,19 @@ def insert_rule(script: str, header: str, value: str, folder: str) -> str:
 @sieve_session()
 async def update_script(sieve: ManageSieve, header: str, value: str, folder: str) -> None:
     """Insert the rule into the active Sieve script, or a new spamhammer one."""
-    active = next((name for name, *flags in await sieve.LISTSCRIPTS() if flags == ['ACTIVE']), None)
+    active = next((name for name, *flags in await sieve.listscripts() if flags == ['ACTIVE']), None)
     name = active or 'spamhammer'
-    script = (await sieve.GETSCRIPT(quote(name)))[0][0] if active else ''
+    script = (await sieve.getscript(quote(name)))[0][0] if active else ''
     logger.info('Sieve %s before:\n%s', name, script)
     if (updated := insert_rule(script, header, value, folder)) == script:
         logger.info('Rule already present')
         return
     # Non-synchronizing literal, which RFC 5804 servers must accept
     literal = f'{{{len(updated.encode())}+}}\r\n{updated}'
-    await sieve.CHECKSCRIPT(literal)
-    await sieve.PUTSCRIPT(quote(name), literal)
+    await sieve.checkscript(literal)
+    await sieve.putscript(quote(name), literal)
     if not active:
-        await sieve.SETACTIVE(quote(name))
+        await sieve.setactive(quote(name))
     logger.info('Sieve %s after:\n%s', name, updated)
 
 

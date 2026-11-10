@@ -51,14 +51,23 @@ class ManageSieve:
             tokens = []
 
     def __getattr__(self, verb: str) -> Callable[..., Coroutine[Any, Any, list[list[str]]]]:
-        """Send a command named in capitals, e.g. `await sieve.GETSCRIPT('"name"')`."""
-        if not verb.isupper():
+        """Send an RFC 5804 command, e.g. `await sieve.getscript('"name"')`."""
+        if verb not in {
+            'authenticate',
+            'checkscript',
+            'getscript',
+            'listscripts',
+            'logout',
+            'putscript',
+            'setactive',
+            'starttls',
+        }:
             raise AttributeError(verb)
 
         async def command(*arguments: str) -> list[list[str]]:
-            self.writer.write(f'{" ".join((verb, *arguments))}\r\n'.encode())
+            self.writer.write(f'{" ".join((verb.upper(), *arguments))}\r\n'.encode())
             await self.writer.drain()
-            return await self.read_response(verb)
+            return await self.read_response(verb.upper())
 
         return command
 
@@ -74,16 +83,16 @@ def sieve_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Run
             hostname = parsed.hostname or ''
             sieve = ManageSieve(*await open_connection(hostname, 4190))
             await sieve.read_response('greeting')
-            await sieve.STARTTLS()
+            await sieve.starttls()
             await sieve.writer.start_tls(create_default_context(), server_hostname=hostname)
             await sieve.read_response('capabilities')
             credentials = f'\0{unquote(parsed.username or "")}\0{unquote(parsed.password or "")}'
-            await sieve.AUTHENTICATE('"PLAIN"', quote(b64encode(credentials.encode()).decode()))
+            await sieve.authenticate('"PLAIN"', quote(b64encode(credentials.encode()).decode()))
             logger.info('%s ManageSieve AUTHENTICATE OK', hostname)
             try:
                 return await function(sieve, *args, **kwargs)
             finally:
-                await sieve.LOGOUT()
+                await sieve.logout()
                 sieve.writer.close()
 
         return inner
