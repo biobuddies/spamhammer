@@ -136,6 +136,8 @@ shellcheck-py==0.11.0.1
     # via spamhammer (pyproject.toml)
 shfmt-py==4.2.0
     # via spamhammer (pyproject.toml)
+sievelib==1.6.0
+    # via spamhammer (pyproject.toml)
 six==1.17.0
     # via python-dateutil
 sqlparse==0.6.0
@@ -153,6 +155,7 @@ typing-extensions==4.16.0
     #   aiohttp
     #   aiosignal
     #   djlint
+    #   sievelib
 typos==1.51.1
     # via spamhammer (pyproject.toml)
 tzdata==2026.5

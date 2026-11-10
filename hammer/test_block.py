@@ -2,14 +2,17 @@
 
 from asyncio import run
 from collections.abc import Callable
+from email import message_from_bytes, policy
 from inspect import unwrap
 from logging import INFO
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 from aioimaplib import Response
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
+from sievelib.parser import Parser
 
 from hammer.management.commands import block
 from hammer.management.commands.block import folder_exists, insert_rule
@@ -67,6 +70,19 @@ def test_block_surfaces_failed_writes(
         b'SETACTIVE "spamhammer"\r\n',
     ]
     assert sent() == b''.join(commands[: list(responses).index(operation) + 2]) + b'LOGOUT\r\n'
+
+
+def test_insert_rule_parses_and_matches_real_spam() -> None:
+    spam = message_from_bytes(
+        (Path(__file__).parent / 'spam' / 'thealphapaths.eml').read_bytes(), policy=policy.default
+    )
+    roundcube = (
+        '# roundcube\nrequire ["fileinto","imap4flags"];\n'
+        '# rule:[Spam: Move]\nif anyof (header :contains "x-spam-level" "***")\n'
+        '{\n\tfileinto "Spam";\n}\n'
+    )
+    assert Parser().parse(insert_rule(roundcube, 'From', 'thealphapaths.com', 'Spam').encode())
+    assert 'thealphapaths.com' in spam['From']
 
 
 @mark.parametrize('status', ('OK', 'NO', 'BAD'))
