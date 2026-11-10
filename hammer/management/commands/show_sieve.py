@@ -11,12 +11,9 @@ from hammer.managesieve import ManageSieve, sieve_session
 @sieve_session(off=[])
 async def show_scripts(sieve: ManageSieve) -> list[str]:
     """Return each script under a `# name (active)` header."""
-    names = sorted(
-        await sieve.command('LISTSCRIPTS'), key=lambda line: (line[1:] != ['ACTIVE'], line)
-    )
+    names = sorted(await sieve.LISTSCRIPTS(), key=lambda line: (line[1:] != ['ACTIVE'], line))
     return [
-        f'# {name}{" (active)" * bool(flags)}\n'
-        + (await sieve.command('GETSCRIPT', quote(name)))[0][0]
+        f'# {name}{" (active)" * bool(flags)}\n' + (await sieve.GETSCRIPT(quote(name)))[0][0]
         for name, *flags in names
     ]
 
