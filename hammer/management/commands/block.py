@@ -12,6 +12,7 @@ from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from hammer.management.commands.hammer import quote
 from hammer.management.commands.list_email import imap_session
+from hammer.management.commands.notes import record_note
 from hammer.managesieve import ManageSieve, sieve_session
 
 logger = getLogger(__name__)
@@ -32,15 +33,15 @@ def insert_rule(script: str, header: str, value: str, folder: str) -> str:
 
 
 @sieve_session()
-async def update_script(sieve: ManageSieve, header: str, value: str, folder: str) -> None:
-    """Insert the rule into the active Sieve script, or a new spamhammer one."""
+async def update_script(sieve: ManageSieve, header: str, value: str, folder: str) -> bool:
+    """Insert the rule into the active Sieve script, or a new spamhammer one; True if added."""
     active = next((name for name, *flags in await sieve.listscripts() if flags == ['ACTIVE']), None)
     name = active or 'spamhammer'
     script = (await sieve.getscript(quote(name)))[0][0] if active else ''
     logger.info('Sieve %s before:\n%s', name, script)
     if (updated := insert_rule(script, header, value, folder)) == script:
         logger.info('Rule already present')
-        return
+        return False
     # Non-synchronizing literal, which RFC 5804 servers must accept
     literal = f'{{{len(updated.encode())}+}}\r\n{updated}'
     await sieve.checkscript(literal)
@@ -48,6 +49,7 @@ async def update_script(sieve: ManageSieve, header: str, value: str, folder: str
     if not active:
         await sieve.setactive(quote(name))
     logger.info('Sieve %s after:\n%s', name, updated)
+    return True
 
 
 @imap_session(off=True)
@@ -104,4 +106,5 @@ class Command(BaseCommand):
             return
         if not run(folder_exists(folder)):
             raise CommandError(f'No {folder} folder; Sieve would keep matches in INBOX')
-        run(update_script(header, value, folder))
+        if run(update_script(header, value, folder)):
+            run(record_note('block', value, f'{header} contains {value}: fileinto {folder}'))
