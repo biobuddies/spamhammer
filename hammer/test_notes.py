@@ -18,6 +18,7 @@ def test_record_note_appends_dated_read_note() -> None:
     run(unwrap(record_note)(imap, 'block', 'example.com', 'From contains example.com'))
     imap.create.assert_awaited_once_with('Spamhammer')
     message, folder, flags, date = imap.append.await_args.args
+    assert b'\n' not in message.replace(b'\r\n', b'')
     note = message_from_bytes(message, policy=policy.default)
     assert (folder, flags, note['Subject'], note['X-Spamhammer-Target']) == (
         'Spamhammer',
@@ -27,7 +28,7 @@ def test_record_note_appends_dated_read_note() -> None:
     )
     assert note['Date'].datetime == date.replace(microsecond=0)
     assert abs(datetime.now(UTC) - date).total_seconds() < 60
-    assert note.get_content() == 'From contains example.com\n'
+    assert note.get_content().strip() == 'From contains example.com'
 
 
 @mark.parametrize(

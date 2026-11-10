@@ -24,9 +24,10 @@ async def record_note(imap: IMAP4_SSL, measure: str, target: str, details: str) 
     note.set_content(details)
     # CREATE answers NO once the folder exists; APPEND then reports any real problem
     await imap.create('Spamhammer')
-    appended = await imap.append(note.as_bytes(), 'Spamhammer', r'\Seen', now)
+    # Cyrus rejects bare LF line endings
+    appended = await imap.append(note.as_bytes(policy=policy.SMTP), 'Spamhammer', r'\Seen', now)
     if appended.result != 'OK':
-        raise ConnectionError(f'Spamhammer APPEND {appended.result}')
+        raise ConnectionError(f'Spamhammer APPEND {appended.result} {appended.lines}')
 
 
 @imap_session(off=[])
