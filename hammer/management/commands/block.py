@@ -8,7 +8,7 @@ from logging import getLogger
 from re import sub
 
 from aioimaplib import IMAP4_SSL
-from django.core.management.base import BaseCommand, CommandParser
+from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from hammer.management.commands.hammer import quote
 from hammer.management.commands.list_email import imap_session
@@ -50,6 +50,13 @@ async def update_script(sieve: ManageSieve, header: str, value: str, folder: str
     logger.info('Sieve %s after:\n%s', name, updated)
 
 
+@imap_session(off=True)
+async def folder_exists(imap: IMAP4_SSL, folder: str) -> bool:
+    """LIST the exact folder; responses before the tagged OK name each match."""
+    listed = await imap.list('""', quote(folder))
+    return any(line.startswith(b'(') for line in listed.lines if isinstance(line, bytes))
+
+
 @imap_session(off=Counter())
 async def count_matches(imap: IMAP4_SSL, header: str, value: str) -> Counter[str]:
     """Count inbox senders whose header contains value, as the rule would match."""
@@ -75,7 +82,7 @@ class Command(BaseCommand):
         parser.add_argument('header', help='e.g. Received')
         parser.add_argument('value', help='e.g. mta.exacttarget.com')
         parser.add_argument('--backtest', action='store_true', help='count INBOX matches only')
-        parser.add_argument('--folder', default='Junk')
+        parser.add_argument('--folder', default='Spam', help='must already exist')
 
     def handle(
         self,
@@ -95,4 +102,6 @@ class Command(BaseCommand):
                 sep='\n',
             )
             return
+        if not run(folder_exists(folder)):
+            raise CommandError(f'No {folder} folder; Sieve would keep matches in INBOX')
         run(update_script(header, value, folder))
