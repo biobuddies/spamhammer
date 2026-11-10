@@ -2,7 +2,7 @@ from asyncio import CancelledError, run
 from inspect import unwrap
 from logging import DEBUG, INFO
 from os import getpid
-from unittest.mock import AsyncMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 from aiohttp import ClientResponseError, ClientSession, web
 from aiohttp.test_utils import TestServer
@@ -148,7 +148,10 @@ def test_report_waits_only_for_matches(message: bytes | None, monkeypatch: Monke
     monkeypatch.setattr(
         hammer, 'report', report := AsyncMock(side_effect=lambda *_args: events.append('report'))
     )
-    assert run(hammer.report_after_delay('sender@example.com', 'Offer', 'Spam', 7)) == message
+    assert run(hammer.report_after_delay('sender@example.com', 'Offer', 'Spam', 7)) == (
+        message,
+        None,
+    )
     fetch.assert_awaited_once_with('sender@example.com', 'Offer')
     report.assert_awaited_once_with('Spam', message)
     assert events == (['wait', 'report'] if message else ['report'])
@@ -220,3 +223,18 @@ def test_fetch_spam_rejects_imap_failures(operation: str) -> None:
     getattr(imap, operation).return_value = Response('NO', [b'Unavailable'])
     with raises(CommandError, match='NO'):
         run(unwrap(fetch_spam)(imap, 'sender@example.com', ''))
+
+
+@mark.parametrize('submission', ({'id': 'abc'}, {}))
+def test_hammer_junks_only_after_accepted_report(
+    monkeypatch: MonkeyPatch, submission: Json
+) -> None:
+    monkeypatch.setattr(
+        hammer, 'report_after_delay', AsyncMock(return_value=(b'email', submission))
+    )
+    monkeypatch.setattr(hammer, 'call_command', junk := MagicMock())
+    call_command('hammer', 'sender@example.com')
+    if submission:
+        junk.assert_called_once_with('junk_email', 'sender@example.com', stdout=ANY)
+    else:
+        junk.assert_not_called()
