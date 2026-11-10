@@ -41,7 +41,8 @@ class ManageSieve:
                 else:
                     tokens.append(atom or quoted.replace('\\"', '"').replace('\\\\', '\\'))
             if size is not None:
-                tokens.append((await self.reader.readexactly(size)).decode())
+                # Scripts travel with CRLF line endings; Python compares and edits with LF
+                tokens.append((await self.reader.readexactly(size)).decode().replace('\r\n', '\n'))
                 continue
             if tokens[:1] == ['OK']:
                 return lines

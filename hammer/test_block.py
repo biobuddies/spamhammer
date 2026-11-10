@@ -102,3 +102,17 @@ def test_block_requires_folder(monkeypatch: MonkeyPatch) -> None:
     with raises(CommandError, match='No Junk folder'):
         call_command('block', 'From', 'sender@example.com', '--folder=Junk')
     update.assert_not_called()
+
+
+def test_block_leaves_crlf_script_with_rule_alone(
+    monkeypatch: MonkeyPatch, sieve_server: Callable[..., Callable[[], bytes]]
+) -> None:
+    script = b'require "fileinto";\r\n' + RULE.replace('Junk', 'Spam').encode().replace(
+        b'\n', b'\r\n'
+    )
+    sent = sieve_server(
+        b'"USER" ACTIVE\r\nOK\r\n', b'{%d}\r\n%s\r\nOK\r\n' % (len(script), script), b'OK\r\n'
+    )
+    monkeypatch.setattr(block, 'folder_exists', AsyncMock(return_value=True))
+    call_command('block', 'Received', 'mta.exacttarget.com')
+    assert sent() == b'LISTSCRIPTS\r\nGETSCRIPT "USER"\r\nLOGOUT\r\n'
