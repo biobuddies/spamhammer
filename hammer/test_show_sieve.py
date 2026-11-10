@@ -1,22 +1,26 @@
-from unittest.mock import MagicMock
+from collections.abc import Callable
 
 from django.core.management import call_command
 from pytest import CaptureFixture, MonkeyPatch
 
-from hammer.management.commands import block
 
-
-def test_show_sieve_prints_active_first(capsys: CaptureFixture, monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://buddy:secret@imap.biobuddi.es')
-    client = MagicMock()
-    client.listscripts.return_value = ('USER', ['roundcube', 'old'])
-    client.getscript.side_effect = lambda name: f'keep; # {name}\n'
-    monkeypatch.setattr(block, 'Client', MagicMock(return_value=client))
+def test_show_sieve_prints_active_first(
+    capsys: CaptureFixture, sieve_server: Callable[..., Callable[[], bytes]]
+) -> None:
+    sent = sieve_server(
+        b'"roundcube"\r\n"USER" ACTIVE\r\n{3}\r\nold\r\nOK "Listscripts completed."\r\n',
+        b'{14}\r\nkeep; # "USER"\r\nOK\r\n',
+        b'{3}\r\nold\r\nOK\r\n',
+        b'"keep; # roundcube"\r\nOK\r\n',
+        b'OK "Logout completed."\r\n',
+    )
     call_command('show_sieve')
     assert capsys.readouterr().out == (
-        '# USER (active)\nkeep; # USER\n\n# old\nkeep; # old\n\n# roundcube\nkeep; # roundcube\n\n'
+        '# USER (active)\nkeep; # "USER"\n# old\nold\n# roundcube\nkeep; # roundcube\n'
     )
-    client.logout.assert_called_once()
+    assert sent() == (
+        b'LISTSCRIPTS\r\nGETSCRIPT "USER"\r\nGETSCRIPT "old"\r\nGETSCRIPT "roundcube"\r\nLOGOUT\r\n'
+    )
 
 
 def test_show_sieve_off(capsys: CaptureFixture, monkeypatch: MonkeyPatch) -> None:

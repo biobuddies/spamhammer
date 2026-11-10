@@ -15,8 +15,6 @@ dependencies = [
     
     'gunicorn',
     
-    'sievelib',
-    
 ]
 
 [project.optional-dependencies]
@@ -41,6 +39,7 @@ test = [
     'pytest',
     'pytest-cov',
     'pytest-django',
+    'sievelib',
 ]
 
 [project.urls]

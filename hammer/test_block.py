@@ -1,15 +1,14 @@
 """Exercise Sieve rule insertion without a ManageSieve server."""
 
+from collections.abc import Callable
 from email import message_from_bytes, policy
 from logging import INFO
 from pathlib import Path
-from unittest.mock import MagicMock
 
 from django.core.management import call_command
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 from sievelib.parser import Parser
 
-from hammer.management.commands import block
 from hammer.management.commands.block import insert_rule
 
 RULE = 'if header :contains "Received" "mta.exacttarget.com" { fileinto "Junk"; stop; }\n'
@@ -44,18 +43,26 @@ def test_block_backtest_off(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch)
     assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
 
 
-@mark.parametrize('operation', ('putscript', 'setactive'))
-def test_block_surfaces_failed_writes(monkeypatch: MonkeyPatch, operation: str) -> None:
-    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://user:secret@imap.example.com')
-    client = MagicMock()
-    client.listscripts.return_value = (None, [])
-    getattr(client, operation).return_value = False
-    monkeypatch.setattr(block, 'Client', MagicMock(return_value=client))
-    with raises(ConnectionError, match=operation.upper()):
+@mark.parametrize('operation', ('CHECKSCRIPT', 'PUTSCRIPT', 'SETACTIVE'))
+def test_block_surfaces_failed_writes(
+    operation: str, sieve_server: Callable[..., Callable[[], bytes]]
+) -> None:
+    responses = {'CHECKSCRIPT': b'OK\r\n', 'PUTSCRIPT': b'OK\r\n', 'SETACTIVE': b'OK\r\n'}
+    responses[operation] = b'NO "Refused"\r\n'
+    sent = sieve_server(b'OK\r\n', *responses.values(), b'OK\r\n')
+    with raises(ConnectionError, match=f'{operation} NO Refused'):
         call_command('block', 'From', 'sender@example.com')
-    client.logout.assert_called_once()
-    if operation == 'putscript':
-        client.setactive.assert_not_called()
+    script = (
+        'require "fileinto";\n'
+        'if header :contains "From" "sender@example.com" { fileinto "Junk"; stop; }\n'
+    )
+    commands = [
+        b'LISTSCRIPTS\r\n',
+        b'CHECKSCRIPT {%d+}\r\n%s\r\n' % (len(script), script.encode()),
+        b'PUTSCRIPT "spamhammer" {%d+}\r\n%s\r\n' % (len(script), script.encode()),
+        b'SETACTIVE "spamhammer"\r\n',
+    ]
+    assert sent() == b''.join(commands[: list(responses).index(operation) + 2]) + b'LOGOUT\r\n'
 
 
 def test_insert_rule_parses_and_matches_real_spam() -> None:
