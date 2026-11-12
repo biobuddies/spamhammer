@@ -10,7 +10,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
-from hammer.management.commands.list_email import list_email
+from hammer.management.commands.list_email import list_email, read_email_urls
 
 
 @mark.parametrize('urls', ('', ' , '))
@@ -21,10 +21,15 @@ def test_list_email_rejects_empty(monkeypatch: MonkeyPatch, urls: str) -> None:
 
 
 @mark.parametrize('urls', ('imaps://a:b@c, imaps://d:e@f', 'imaps://a:b@c imaps://d:e@f'))
-def test_list_email_requires_one_url(monkeypatch: MonkeyPatch, urls: str) -> None:
+def test_list_email_requires_submission_after_first(monkeypatch: MonkeyPatch, urls: str) -> None:
     monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', urls)
     with raises(NotImplementedError):
         call_command('list_email')
+
+
+def test_read_email_urls_accepts_submission(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://a:b@c, submission://d')
+    assert [url.scheme for url in read_email_urls()] == ['imaps', 'submission']
 
 
 def test_list_email_defaults_off(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
