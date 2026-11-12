@@ -3,7 +3,7 @@
 from asyncio import get_running_loop, run, sleep
 from collections.abc import Callable, Coroutine
 from email import message_from_bytes, policy
-from email.utils import parseaddr, quote
+from email.utils import parseaddr
 from functools import wraps
 from logging import getLogger
 from os import environ, getpid
@@ -95,11 +95,7 @@ async def fetch_spam(imap: IMAP4_SSL, sender: str, subject: str) -> bytes | None
     selected = await imap.select('INBOX')
     if selected.result != 'OK':
         raise CommandError(f'INBOX SELECT {selected.result}')
-    criteria = (
-        'FROM',
-        f'"{quote(sender)}"',
-        *(('SUBJECT', f'"{quote(subject)}"') if subject else ()),
-    )
+    criteria = ('FROM', f'"{sender}"', *(('SUBJECT', f'"{subject}"') if subject else ()))
     found = await imap.uid_search(*criteria)
     if found.result != 'OK':
         raise CommandError(f'UID SEARCH {found.result}')
