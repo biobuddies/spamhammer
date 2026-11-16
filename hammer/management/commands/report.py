@@ -1,4 +1,4 @@
-"""Report spam to Spamhaus."""
+"""Report spam to Spamhaus and its sending platform."""
 
 from asyncio import run
 from logging import getLogger
@@ -6,6 +6,7 @@ from os import environ, getpid
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
+from hammer.abuse import email_reports
 from hammer.hammer import report_after_delay
 from hammer.management.commands.sweep import sweep_summary
 
@@ -23,7 +24,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *_args: object, delay_seconds: int, spam: str, **_options: object) -> None:
-        """Report the latest matching inbox message to Spamhaus."""
+        """Report the latest matching inbox message to Spamhaus and its sending platforms."""
         run(self.handle_async(spam, delay_seconds=delay_seconds))
 
     async def handle_async(self, spam: str, *, delay_seconds: int) -> None:
@@ -39,8 +40,10 @@ class Command(BaseCommand):
             else f'kill {getpid()}',
         )
         try:
-            await report_after_delay(sender, subject, delay_seconds)
+            message, _submission = await report_after_delay(sender, subject, delay_seconds)
         except Exception:
             print(await sweep_summary(sender, dry_run=False))
             raise
+        if message:
+            email_reports(message)
         print(await sweep_summary(sender, dry_run=False))

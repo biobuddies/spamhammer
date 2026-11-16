@@ -62,18 +62,27 @@ class ImapClient(IMAP4_SSL):
         return inner
 
 
-def read_email_url() -> ParseResult | None:
-    """Parse SPAMHAMMER_EMAIL_URLS, delimited by commas and/or whitespace; None when off."""
-    match [url for url in split(r'[\s,]+', environ.get('SPAMHAMMER_EMAIL_URLS', 'off')) if url]:
+def read_email_urls() -> list[ParseResult]:
+    """Parse SPAMHAMMER_EMAIL_URLS, delimited by commas and/or whitespace; [] when off.
+
+    The first serves IMAP and ManageSieve; any others must be submission://, serving SMTP.
+    """
+    urls = environ.get('SPAMHAMMER_EMAIL_URLS', 'off')
+    match [urlparse(url) for url in split(r'[\s,]+', urls) if url]:
         case []:
             raise ImproperlyConfigured('SPAMHAMMER_EMAIL_URLS empty; off skips')
-        case [url] if url.startswith('off'):
+        case [parsed] if parsed.geturl().startswith('off'):
             logger.info('SPAMHAMMER_EMAIL_URLS off')
-            return None
-        case [url]:
-            return urlparse(url)
+            return []
+        case [_, *others] as parsed if all(other.scheme == 'submission' for other in others):
+            return parsed
         case _:
-            raise NotImplementedError('exactly one SPAMHAMMER_EMAIL_URLS supported for now')
+            raise NotImplementedError('SPAMHAMMER_EMAIL_URLS past the first must be submission://')
+
+
+def read_email_url() -> ParseResult | None:
+    """Return the first SPAMHAMMER_EMAIL_URLS, serving IMAP and ManageSieve; None when off."""
+    return next(iter(read_email_urls()), None)
 
 
 def imap_session[**P, T](

@@ -10,7 +10,7 @@ from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
 from hammer import hammer
-from hammer.hammer import ImapClient, Json, fetch_spam, json_session, report
+from hammer.hammer import ImapClient, Json, fetch_spam, json_session, read_email_urls, report
 
 
 def test_imap_session_raises_on_rejected_login(monkeypatch: MonkeyPatch) -> None:
@@ -205,3 +205,8 @@ def test_fetch_spam_rejects_imap_failures(operation: str) -> None:
     getattr(imap, operation).side_effect = CommandError('NO')
     with raises(CommandError, match='NO'):
         run(unwrap(fetch_spam)(imap, 'contact@news.unchartedvalues.com', ''))
+
+
+def test_read_email_urls_accepts_submission(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://a:b@c, submission://d')
+    assert [url.scheme for url in read_email_urls()] == ['imaps', 'submission']
