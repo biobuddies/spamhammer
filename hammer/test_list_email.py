@@ -1,10 +1,23 @@
 """Exercise list_email without a mail server."""
 
+from asyncio import run
+from inspect import unwrap
 from logging import INFO
+from pathlib import Path
+from unittest.mock import AsyncMock
 
+from aioimaplib import Response
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
+
+from hammer.management.commands.list_email import list_email
+
+UNSUBSCRIBE, ONE_CLICK = (
+    line
+    for line in (Path(__file__).parent / 'spam' / 'thealphapaths.eml').read_text().splitlines()
+    if line.startswith('List-Unsubscribe')
+)
 
 
 @mark.parametrize('urls', ('', ' , '))
@@ -26,3 +39,50 @@ def test_list_email_defaults_off(caplog: LogCaptureFixture, monkeypatch: MonkeyP
     with caplog.at_level(INFO):
         call_command('list_email')
     assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
+
+
+@mark.parametrize(
+    ('headers', 'marker'),
+    (
+        ('', ''),
+        (f'{UNSUBSCRIBE}\r\n', ''),
+        (f'{UNSUBSCRIBE}\r\n{ONE_CLICK}\r\n', '\t[1C]'),
+        (
+            (
+                'List-Unsubscribe: <https://[invalid/leave>\r\n'
+                'List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n'
+            ),
+            '',
+        ),
+    ),
+)
+def test_list_email_marks_one_click(headers: str, marker: str) -> None:
+    imap = AsyncMock()
+    imap.search.return_value = Response('OK', [b'1 2'])
+    imap.fetch.return_value = Response(
+        'OK',
+        [
+            b'1 FETCH',
+            bytearray(
+                (
+                    'From: "The Alpha Paths" <contact@news.thealphapaths.com>\r\n'
+                    'Subject: 83 parcels. One company.\r\n' + headers
+                ).encode()
+            ),
+            bytearray(
+                b'From: contact@news.meadowbrookupdates.com\r\n'
+                b'Subject: Fly Private for $169? The Secret Travel Writers Swear By\r\n'
+            ),
+            b'Done',
+        ],
+    )
+    assert run(unwrap(list_email)(imap)) == [
+        f'contact@news.thealphapaths.com 83 parcels. One company.{marker}',
+        (
+            'contact@news.meadowbrookupdates.com'
+            ' Fly Private for $169? The Secret Travel Writers Swear By'
+        ),
+    ]
+    imap.fetch.assert_awaited_once_with(
+        '1,2', 'BODY.PEEK[HEADER.FIELDS (FROM SUBJECT LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST)]'
+    )

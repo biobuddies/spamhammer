@@ -58,10 +58,10 @@ def test_block_surfaces_failed_writes(
     sent = sieve_server(b'OK\r\n', *responses.values(), b'OK\r\n')
     monkeypatch.setattr(block, 'folder_exists', AsyncMock(return_value=True))
     with raises(ConnectionError, match=f'{operation} NO Refused'):
-        call_command('block', 'From', 'sender@example.com')
+        call_command('block', 'From', 'unchartedvalues.com')
     script = (
         'require "fileinto";\n'
-        'if header :contains "From" "sender@example.com" { fileinto "Spam"; stop; }\n'
+        'if header :contains "From" "unchartedvalues.com" { fileinto "Spam"; stop; }\n'
     )
     commands = [
         b'LISTSCRIPTS\r\n',
@@ -97,7 +97,7 @@ def test_block_requires_folder(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(block, 'folder_exists', AsyncMock(return_value=False))
     monkeypatch.setattr(block, 'update_script', update := AsyncMock())
     with raises(CommandError, match='No Junk folder'):
-        call_command('block', 'From', 'sender@example.com', '--folder=Junk')
+        call_command('block', 'From', 'unchartedvalues.com', '--folder=Junk')
     update.assert_not_called()
 
 
