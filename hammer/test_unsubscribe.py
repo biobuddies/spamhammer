@@ -114,4 +114,29 @@ def test_unsubscribe_dry_run() -> None:
     assert output.getvalue() == (
         'Would request unsubscribe for contact@news.thealphapaths.com'
         ' via click.news.thealphapaths.com\n'
+        'Would move 0 messages from news.thealphapaths.com to Spam\n'
     )
+
+
+@mark.parametrize('accepted', (True, False))
+def test_unsubscribe_cleanup_only_after_success(accepted: bool) -> None:
+    request = (
+        AsyncMock(return_value='Accepted')
+        if accepted
+        else AsyncMock(side_effect=CommandError('Failed'))
+    )
+    with (
+        patch('hammer.management.commands.unsubscribe.unsubscribe', new=request),
+        patch('hammer.management.commands.unsubscribe.call_command') as cleanup,
+    ):
+        if accepted:
+            call_command(
+                'unsubscribe', 'contact@news.thealphapaths.com 83 parcels', stdout=StringIO()
+            )
+        else:
+            with raises(CommandError, match='Failed'):
+                call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels')
+    assert cleanup.call_count == int(accepted)
+    if accepted:
+        assert cleanup.call_args.args == ('junk_email', 'contact@news.thealphapaths.com')
+        assert cleanup.call_args.kwargs['dry_run'] is False

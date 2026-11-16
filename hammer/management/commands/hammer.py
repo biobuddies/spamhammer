@@ -20,6 +20,7 @@ from aiohttp import (
 )
 from aioimaplib import IMAP4_SSL
 from django.core.exceptions import ImproperlyConfigured
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from hammer.management.commands.list_email import imap_session
@@ -140,16 +141,15 @@ async def report(session: ClientSession, reason: str, message: bytes | None) -> 
 
 async def report_after_delay(
     sender: str, subject: str, reason: str, delay_seconds: int
-) -> bytes | None:
-    """Wait asynchronously before reporting a matching message; return it for further reporting."""
+) -> tuple[bytes | None, Json]:
+    """Wait asynchronously before reporting a matching message; return it and the submission."""
     if delay_seconds < 0:
         raise CommandError('--delay-seconds must be nonnegative')
     message = await fetch_spam(sender, subject)
     if message:
         logger.info('Reporting in %d seconds', delay_seconds)
         await sleep(delay_seconds)
-    await report(reason, message)
-    return message
+    return message, await report(reason, message)
 
 
 class Command(BaseCommand):
@@ -175,8 +175,10 @@ class Command(BaseCommand):
             if (run_id := environ.get('GITHUB_RUN_ID'))
             else f'kill {getpid()}',
         )
-        run(
+        _message, submission = run(
             report_after_delay(
                 sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
             )
         )
+        if submission:
+            call_command('junk_email', sender, stdout=self.stdout)
