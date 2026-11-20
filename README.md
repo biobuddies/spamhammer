@@ -16,13 +16,12 @@ Dry runs inspect headers without moving mail. The report workflow places a Sieve
 before the sweep. Installing that filter is still a separate `block` operation.
 
 ```bash
-python -m manage junk_email MileagePlus_Partner@enews.united.com --dry-run --folder Spam
-python -m manage junk_email MileagePlus_Partner@enews.united.com --folder Spam
+python -m manage junk_email MileagePlus_Partner@enews.united.com --dry-run
+python -m manage junk_email MileagePlus_Partner@enews.united.com
 ```
 
-Set `SPAMHAMMER_JUNK_FOLDER` for automatic cleanup; otherwise the destination is `Spam`. The folder
-must already exist, and the server must support `UID MOVE`. If a move fails partway through, rerun
-cleanup after fixing the cause. The move preserves message flags.
+The `Spam` folder must already exist, and the server must support `UID MOVE`. If a move fails
+partway through, rerun cleanup after fixing the cause. The move preserves message flags.
 
 ## Cleanup scope
 

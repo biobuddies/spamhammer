@@ -48,12 +48,13 @@ def make_imap(domain: str = 'news.unchartedvalues.com') -> AsyncMock:
 @mark.parametrize('dry_run', (True, False))
 def test_junk_scope(domain: str, sequence: str, count: int, dry_run: bool) -> None:
     imap = make_imap(domain)
-    counts = run(unwrap(junk_email)(imap, f'contact@{domain}', dry_run=dry_run, folder='Spam'))
+    counts = run(unwrap(junk_email)(imap, f'contact@{domain}', dry_run=dry_run))
     assert counts.total() == count
     assert imap.uid.await_count == (1 if dry_run else 2)
     if dry_run:
         imap.status.assert_not_awaited()
     else:
+        imap.status.assert_awaited_once_with('"Spam"', '(UIDVALIDITY)')
         assert imap.uid.await_args_list[1].args == ('MOVE', sequence, '"Spam"')
 
 
@@ -69,11 +70,7 @@ def test_junk_failure(failure: str) -> None:
         responses[1] = CommandError('UID MOVE NO')
     imap.uid.side_effect = responses
     with raises(CommandError):
-        run(
-            unwrap(junk_email)(
-                imap, 'contact@news.unchartedvalues.com', dry_run=False, folder='Spam'
-            )
-        )
+        run(unwrap(junk_email)(imap, 'contact@news.unchartedvalues.com', dry_run=False))
     assert imap.uid.await_count == (2 if failure == 'move' else 1)
 
 
@@ -81,11 +78,7 @@ def test_junk_empty() -> None:
     imap = make_imap()
     imap.uid_search.return_value = Response('OK', [b''])
     assert (
-        run(
-            unwrap(junk_email)(
-                imap, 'contact@news.unchartedvalues.com', dry_run=False, folder='Spam'
-            )
-        )
+        run(unwrap(junk_email)(imap, 'contact@news.unchartedvalues.com', dry_run=False))
         == Counter()
     )
     imap.uid.assert_not_awaited()
@@ -111,9 +104,7 @@ def test_junk_output(domain: str, dry_run: bool) -> None:
     with patch(
         'hammer.management.commands.junk_email.junk_email', new=AsyncMock(return_value=counts)
     ):
-        call_command(
-            'junk_email', f'Sender@{domain}', dry_run=dry_run, folder='Spam', stdout=output
-        )
+        call_command('junk_email', f'Sender@{domain}', dry_run=dry_run, stdout=output)
     scope = domain if domain.count('.') >= 2 else f'Sender@{domain}'
     suffix = ': Sender@, Other@' if domain.count('.') >= 2 else ''
     assert (

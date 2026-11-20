@@ -1,17 +1,18 @@
-"""Move matching inbox messages to a junk folder, Spam by default."""
+"""Move matching inbox messages to Spam."""
 
 from asyncio import run
 from collections import Counter
 from collections.abc import Sequence
 from email import message_from_bytes, policy
 from email.utils import parseaddr
-from os import environ
 from re import search
 
 from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from hammer.management.commands.list_email import imap_session
+
+SPAM_FOLDER = 'Spam'
 
 
 def cleanup_scope(sender: str) -> str:
@@ -49,12 +50,9 @@ def match_messages(lines: Sequence[bytes | bytearray], scope: str) -> dict[str, 
 
 
 @imap_session(off=Counter())
-async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool, folder: str) -> Counter[str]:
+async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
     """Check exact From addresses, then UID MOVE only the matched messages."""
     scope = cleanup_scope(sender)
-    quoted_folder = f'"{folder}"'
-    if folder.casefold() == 'inbox':
-        raise CommandError('Destination cannot be INBOX')
     await imap.select('INBOX')
     value = scope if '@' in scope else '@' + scope
     found = await imap.uid_search('FROM', f'"{value}"')
@@ -68,9 +66,10 @@ async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool, folder: str
         return counts
     if not imap.protocol or 'MOVE' not in imap.protocol.capabilities:
         raise CommandError('Server must support UID MOVE')
+    quoted_folder = f'"{SPAM_FOLDER}"'
     destination = await imap.status(quoted_folder, '(UIDVALIDITY)')
     if destination.result != 'OK':
-        raise CommandError(f'STATUS {folder!r} {destination.result}')
+        raise CommandError(f'STATUS {SPAM_FOLDER!r} {destination.result}')
     sequence = ','.join(matches)
     try:
         await imap.uid('MOVE', sequence, quoted_folder)
@@ -83,22 +82,19 @@ class Command(BaseCommand):
     help = __doc__
 
     def add_arguments(self, parser: CommandParser) -> None:
-        """Take a sender and destination; infer cleanup scope from the domain."""
+        """Take a sender and infer cleanup scope from the domain."""
         parser.add_argument('sender')
         parser.add_argument('--dry-run', action='store_true')
-        parser.add_argument('--folder', default=environ.get('SPAMHAMMER_JUNK_FOLDER', 'Spam'))
 
-    def handle(
-        self, *_args: object, sender: str, dry_run: bool, folder: str, **_options: object
-    ) -> None:
+    def handle(self, *_args: object, sender: str, dry_run: bool, **_options: object) -> None:
         """Print the affected message count and sender breakdown."""
         scope = cleanup_scope(sender)
-        counts = run(junk_email(sender, dry_run=dry_run, folder=folder)) or Counter()
+        counts = run(junk_email(sender, dry_run=dry_run)) or Counter()
         addresses = ', '.join(
             f'{address.rpartition("@")[0]}@' for address, _count in counts.most_common()
         )
         suffix = f': {addresses}' if '@' not in scope and counts else ''
         self.stdout.write(
             f'{"Would move" if dry_run else "Moved"} {counts.total()} messages '
-            f'from {scope} to {folder}{suffix}'
+            f'from {scope} to {SPAM_FOLDER}{suffix}'
         )
