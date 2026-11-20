@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from pytest import MonkeyPatch, fixture
 
-from hammer import managesieve
+from hammer import hammer
 
 
 @fixture
@@ -26,7 +26,7 @@ def sieve_server(monkeypatch: MonkeyPatch) -> Callable[..., Callable[[], bytes]]
             reader.feed_eof()
             return reader, writer
 
-        monkeypatch.setattr(managesieve, 'open_connection', open_connection)
+        monkeypatch.setattr(hammer, 'open_connection', open_connection)
 
         def sent() -> bytes:
             login = b'STARTTLS\r\nAUTHENTICATE "PLAIN" "AGJ1c3lidWRkeQBzZWNyZXQ="\r\n'

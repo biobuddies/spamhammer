@@ -1,13 +1,15 @@
-"""Report spam to Spamhaus."""
+"""Connect to mail servers and report spam to Spamhaus."""
 
-from asyncio import get_running_loop, sleep
+from asyncio import StreamReader, StreamWriter, get_running_loop, open_connection, sleep
+from base64 import b64encode
 from collections.abc import Callable, Coroutine
 from email import message_from_bytes, policy
 from email.utils import parseaddr
 from functools import wraps
 from logging import getLogger
 from os import environ
-from re import split
+from re import finditer, split
+from ssl import create_default_context
 from types import SimpleNamespace
 from typing import Any, Concatenate
 from urllib.parse import ParseResult, unquote, urlparse
@@ -28,7 +30,8 @@ logger = getLogger(__name__)
 type Json = dict[str, Any]
 type JsonSession[**P] = Callable[Concatenate[ClientSession, P], Coroutine[Any, Any, Json]]
 type Runner[**P, T] = Callable[P, Coroutine[Any, Any, T | None]]
-type Session[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T]]
+type ImapSession[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T]]
+type SieveSession[**P, T] = Callable[Concatenate['ManageSieve', P], Coroutine[Any, Any, T]]
 
 
 class ImapClient(IMAP4_SSL):
@@ -75,14 +78,14 @@ def read_email_url() -> ParseResult | None:
 
 def imap_session[**P, T](
     off: T | None = None, *, requires: tuple[str, ...] = ()
-) -> Callable[[Session[P, T]], Runner[P, T]]:
+) -> Callable[[ImapSession[P, T]], Runner[P, T]]:
     """Supply a client logged in to SPAMHAMMER_EMAIL_URLS, smoke tested by LOGIN.
 
     URLs, delimited by commas and/or whitespace, starting with 'off' return `off` instead.
     Check required capabilities immediately after login.
     """
 
-    def decorate(function: Session[P, T]) -> Runner[P, T]:
+    def decorate(function: ImapSession[P, T]) -> Runner[P, T]:
         @wraps(function)
         async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
             if not (parsed := read_email_url()):
@@ -98,6 +101,94 @@ def imap_session[**P, T](
                 return await function(imap, *args, **kwargs)
             finally:
                 await imap.logout()
+
+        return inner
+
+    return decorate
+
+
+class ManageSieve:
+    """Commands over one stream; NO and BYE raise ConnectionError."""
+
+    def __init__(self, reader: StreamReader, writer: StreamWriter) -> None:
+        self.reader = reader
+        self.writer = writer
+
+    async def read_response(self, verb: str) -> list[list[str]]:
+        """Return tokenized lines before OK, splicing in announced literals."""
+        lines = []
+        tokens: list[str] = []
+        while True:
+            line = (await self.reader.readline()).decode()
+            if not line:
+                raise ConnectionError(f'ManageSieve {verb} connection closed')
+            size = None
+            for match in finditer(r'"((?:[^"\\]|\\.)*)"|\{(\d+)\+?\}\r?$|(\S+)', line):
+                quoted, size_text, atom = match.groups()
+                if size_text:
+                    size = int(size_text)
+                else:
+                    tokens.append(atom or quoted.replace('\\"', '"').replace('\\\\', '\\'))
+            if size is not None:
+                # Scripts travel with CRLF line endings; Python compares and edits with LF
+                tokens.append((await self.reader.readexactly(size)).decode().replace('\r\n', '\n'))
+                continue
+            if tokens[:1] == ['OK']:
+                return lines
+            if tokens[:1] in (['NO'], ['BYE']):
+                raise ConnectionError(f'ManageSieve {verb} {" ".join(tokens)}')
+            lines.append(tokens)
+            tokens = []
+
+    def __getattr__(self, verb: str) -> Callable[..., Coroutine[Any, Any, list[list[str]]]]:
+        """Send an RFC 5804 command, e.g. `await sieve.getscript('"name"')`."""
+        if verb not in {
+            'authenticate',
+            'checkscript',
+            'getscript',
+            'listscripts',
+            'logout',
+            'putscript',
+            'setactive',
+            'starttls',
+        }:
+            raise AttributeError(verb)
+
+        async def inner(*args: str) -> list[list[str]]:
+            self.writer.write(f'{" ".join((verb.upper(), *args))}\r\n'.encode())
+            await self.writer.drain()
+            return await self.read_response(verb.upper())
+
+        return inner
+
+
+def sieve_session[**P, T](off: T | None = None) -> Callable[[SieveSession[P, T]], Runner[P, T]]:
+    """Supply a client logged in with SPAMHAMMER_EMAIL_URLS over STARTTLS; `off` when off."""
+
+    def decorate(function: SieveSession[P, T]) -> Runner[P, T]:
+        @wraps(function)
+        async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
+            if not (parsed := read_email_url()):
+                return off
+            hostname = parsed.hostname or ''
+            sieve = ManageSieve(*await open_connection(hostname, 4190))
+            await sieve.read_response('greeting')
+            await sieve.starttls()
+            await sieve.writer.start_tls(create_default_context(), server_hostname=hostname)
+            await sieve.read_response('capabilities')
+            await sieve.authenticate(
+                '"PLAIN"',
+                '"%s"'
+                % b64encode(
+                    f'\0{unquote(parsed.username or "")}\0{unquote(parsed.password or "")}'.encode()
+                ).decode(),
+            )
+            logger.info('%s ManageSieve AUTHENTICATE OK', hostname)
+            try:
+                return await function(sieve, *args, **kwargs)
+            finally:
+                await sieve.logout()
+                sieve.writer.close()
 
         return inner
 

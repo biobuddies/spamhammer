@@ -4,7 +4,7 @@ from asyncio import run
 
 from django.core.management.base import BaseCommand
 
-from hammer.managesieve import ManageSieve, sieve_session
+from hammer.hammer import ManageSieve, sieve_session
 
 
 @sieve_session(off=[])
