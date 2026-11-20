@@ -10,7 +10,7 @@ from re import sub
 from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandParser
 
-from hammer.management.commands.list_email import imap_session
+from hammer.hammer import imap_session
 from hammer.managesieve import ManageSieve, sieve_session
 
 logger = getLogger(__name__)

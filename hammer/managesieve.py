@@ -10,7 +10,7 @@ from ssl import create_default_context
 from typing import Any, Concatenate
 from urllib.parse import unquote
 
-from hammer.management.commands.list_email import read_email_url
+from hammer.hammer import read_email_url
 
 logger = getLogger(__name__)
 type Runner[**P, T] = Callable[P, Coroutine[Any, Any, T | None]]

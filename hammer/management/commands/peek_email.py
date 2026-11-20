@@ -7,7 +7,7 @@ from email.utils import parseaddr
 from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from hammer.management.commands.list_email import imap_session
+from hammer.hammer import imap_session
 
 
 @imap_session()

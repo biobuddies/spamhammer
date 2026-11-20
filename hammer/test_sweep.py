@@ -11,7 +11,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from pytest import CaptureFixture, MonkeyPatch, mark, raises
 
-from hammer.management.commands import list_email
+from hammer import hammer
 from hammer.management.commands.sweep import match_messages, sweep
 
 
@@ -76,7 +76,7 @@ def test_sweep_requires_move_after_login(monkeypatch: MonkeyPatch, dry_run: bool
     imap = make_imap()
     imap.protocol.capabilities = set()
     monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
-    monkeypatch.setattr(list_email, 'ImapClient', lambda *_: imap)
+    monkeypatch.setattr(hammer, 'ImapClient', lambda *_: imap)
     with raises(CommandError, match='Missing IMAP capabilities: MOVE'):
         call_command('sweep', 'contact@news.unchartedvalues.com', dry_run=dry_run)
     imap.login.assert_awaited_once()

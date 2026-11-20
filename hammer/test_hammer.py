@@ -1,16 +1,46 @@
 from asyncio import CancelledError, run
 from inspect import unwrap
 from logging import DEBUG, INFO
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from aiohttp import ClientResponseError, ClientSession, web
 from aiohttp.test_utils import TestServer
-from aioimaplib import Response
+from aioimaplib import IMAP4_SSL, Response
 from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
 from hammer import hammer
-from hammer.hammer import Json, fetch_spam, json_session, report
+from hammer.hammer import ImapClient, Json, fetch_spam, json_session, report
+
+
+def test_imap_session_raises_on_rejected_login(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
+    monkeypatch.setattr(IMAP4_SSL, 'create_client', Mock())
+    monkeypatch.setattr(IMAP4_SSL, 'wait_hello_from_server', AsyncMock())
+    monkeypatch.setattr(IMAP4_SSL, 'login', AsyncMock(return_value=Response('NO', [])))
+    monkeypatch.setattr(IMAP4_SSL, 'select', select := AsyncMock())
+    with raises(ConnectionError, match=r'imap\.biobuddi\.es LOGIN NO'):
+        run(fetch_spam('contact@example.com', ''))
+    select.assert_not_awaited()
+
+
+@mark.parametrize(
+    ('method', 'arguments', 'message'),
+    (
+        ('select', ('INBOX',), 'INBOX SELECT NO'),
+        ('search', ('UNSEEN',), 'SEARCH NO'),
+        ('uid_search', ('UNSEEN',), 'UID SEARCH NO'),
+        ('fetch', ('1', 'BODY.PEEK[]'), 'FETCH NO'),
+        ('status', ('"Spam"', '(UIDVALIDITY)'), 'STATUS NO'),
+        ('uid', ('MOVE', '1', 'Spam'), 'UID MOVE NO'),
+    ),
+)
+def test_imap_client_checks_responses(
+    monkeypatch: MonkeyPatch, method: str, arguments: tuple[str, ...], message: str
+) -> None:
+    monkeypatch.setattr(IMAP4_SSL, method, AsyncMock(return_value=Response('NO', [])))
+    with raises(CommandError, match=message):
+        run(getattr(object.__new__(ImapClient), method)(*arguments))
 
 
 def test_json_session_logs_each_request_once(

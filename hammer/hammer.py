@@ -7,8 +7,10 @@ from email.utils import parseaddr
 from functools import wraps
 from logging import getLogger
 from os import environ
+from re import split
 from types import SimpleNamespace
 from typing import Any, Concatenate
+from urllib.parse import ParseResult, unquote, urlparse
 
 from aiohttp import (
     ClientSession,
@@ -18,14 +20,90 @@ from aiohttp import (
     TraceRequestExceptionParams,
     TraceRequestStartParams,
 )
-from aioimaplib import IMAP4_SSL
+from aioimaplib import IMAP4_SSL, Response
 from django.core.exceptions import ImproperlyConfigured
-
-from hammer.management.commands.list_email import imap_session
+from django.core.management.base import CommandError
 
 logger = getLogger(__name__)
 type Json = dict[str, Any]
 type JsonSession[**P] = Callable[Concatenate[ClientSession, P], Coroutine[Any, Any, Json]]
+type Runner[**P, T] = Callable[P, Coroutine[Any, Any, T | None]]
+type Session[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T]]
+
+
+class ImapClient(IMAP4_SSL):
+    """Raise on failed login and mailbox commands."""
+
+    def __getattribute__(self, name: str) -> Any:
+        """Check the response from selected inherited commands."""
+        method = super().__getattribute__(name)
+        if name not in {'fetch', 'login', 'search', 'select', 'status', 'uid', 'uid_search'}:
+            return method
+
+        @wraps(method)
+        async def inner(*args: str, **kwargs: str | None) -> Response:
+            response = await method(*args, **kwargs)
+            if response.result == 'OK':
+                return response
+            match name:
+                case 'login':
+                    raise ConnectionError(f'{self.host} LOGIN {response.result}')
+                case 'select':
+                    mailbox = args[0] if args else kwargs.get('mailbox', 'INBOX')
+                    operation = f'{mailbox} SELECT'
+                case 'uid':
+                    verb = args[0] if args else kwargs['command']
+                    operation = f'UID {verb}'
+                case _:
+                    operation = name.replace('_', ' ').upper()
+            raise CommandError(f'{operation} {response.result}')
+
+        return inner
+
+
+def read_email_url() -> ParseResult | None:
+    """Parse SPAMHAMMER_EMAIL_URLS, delimited by commas and/or whitespace; None when off."""
+    match [url for url in split(r'[\s,]+', environ.get('SPAMHAMMER_EMAIL_URLS', 'off')) if url]:
+        case []:
+            raise ImproperlyConfigured('SPAMHAMMER_EMAIL_URLS empty; off skips')
+        case [url] if url.startswith('off'):
+            logger.info('SPAMHAMMER_EMAIL_URLS off')
+            return None
+        case [url]:
+            return urlparse(url)
+        case _:
+            raise NotImplementedError('exactly one SPAMHAMMER_EMAIL_URLS supported for now')
+
+
+def imap_session[**P, T](
+    off: T | None = None, *, requires: tuple[str, ...] = ()
+) -> Callable[[Session[P, T]], Runner[P, T]]:
+    """Supply a client logged in to SPAMHAMMER_EMAIL_URLS, smoke tested by LOGIN.
+
+    URLs, delimited by commas and/or whitespace, starting with 'off' return `off` instead.
+    Check required capabilities immediately after login.
+    """
+
+    def decorate(function: Session[P, T]) -> Runner[P, T]:
+        @wraps(function)
+        async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
+            if not (parsed := read_email_url()):
+                return off
+            imap = ImapClient(parsed.hostname or '', parsed.port or 993)
+            await imap.wait_hello_from_server()
+            await imap.login(unquote(parsed.username or ''), unquote(parsed.password or ''))
+            logger.info('%s LOGIN OK', parsed.hostname)
+            try:
+                capabilities = imap.protocol.capabilities if imap.protocol else ()
+                if missing := set(requires).difference(capabilities):
+                    raise CommandError(f'Missing IMAP capabilities: {", ".join(sorted(missing))}')
+                return await function(imap, *args, **kwargs)
+            finally:
+                await imap.logout()
+
+        return inner
+
+    return decorate
 
 
 async def time_request(
