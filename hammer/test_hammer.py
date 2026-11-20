@@ -19,7 +19,7 @@ def test_imap_session_raises_on_rejected_login(monkeypatch: MonkeyPatch) -> None
     monkeypatch.setattr(IMAP4_SSL, 'wait_hello_from_server', AsyncMock())
     monkeypatch.setattr(IMAP4_SSL, 'login', AsyncMock(return_value=Response('NO', [])))
     monkeypatch.setattr(IMAP4_SSL, 'select', select := AsyncMock())
-    with raises(ConnectionError, match=r'imap\.biobuddi\.es LOGIN NO'):
+    with raises(CommandError, match=r'^imap\.biobuddi\.es LOGIN NO$'):
         run(fetch_spam('contact@example.com', ''))
     select.assert_not_awaited()
 
@@ -39,8 +39,10 @@ def test_imap_client_checks_responses(
     monkeypatch: MonkeyPatch, method: str, arguments: tuple[str, ...], message: str
 ) -> None:
     monkeypatch.setattr(IMAP4_SSL, method, AsyncMock(return_value=Response('NO', [])))
-    with raises(CommandError, match=message):
-        run(getattr(object.__new__(ImapClient), method)(*arguments))
+    imap = object.__new__(ImapClient)
+    imap.host = 'imap.biobuddi.es'
+    with raises(CommandError, match=rf'^imap\.biobuddi\.es {message}$'):
+        run(getattr(imap, method)(*arguments))
 
 
 def test_json_session_logs_each_request_once(

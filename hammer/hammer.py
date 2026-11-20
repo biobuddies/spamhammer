@@ -46,8 +46,6 @@ class ImapClient(IMAP4_SSL):
             if response.result == 'OK':
                 return response
             match name:
-                case 'login':
-                    raise ConnectionError(f'{self.host} LOGIN {response.result}')
                 case 'select':
                     mailbox = args[0] if args else kwargs.get('mailbox', 'INBOX')
                     operation = f'{mailbox} SELECT'
@@ -56,7 +54,7 @@ class ImapClient(IMAP4_SSL):
                     operation = f'UID {verb}'
                 case _:
                     operation = name.replace('_', ' ').upper()
-            raise CommandError(f'{operation} {response.result}')
+            raise CommandError(f'{self.host} {operation} {response.result}')
 
         return inner
 
