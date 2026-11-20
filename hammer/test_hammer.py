@@ -61,7 +61,7 @@ def test_report_submits_raw_message(caplog: LogCaptureFixture, monkeypatch: Monk
             await json_session('SPAMHAUS_API_KEY', str(server.make_url('/')), 'submissions/list')(
                 unwrap(report)
             )(
-                'Unsolicited email from contact@news.unchartedvalues.com',
+                'contact@news.unchartedvalues.com',
                 b'From: contact@news.unchartedvalues.com\r\n\r\nAct now',
             )
 
@@ -102,11 +102,12 @@ def test_report_waits_only_for_matches(message: bytes | None, monkeypatch: Monke
     monkeypatch.setattr(
         hammer, 'report', report := AsyncMock(side_effect=lambda *_args: events.append('report'))
     )
-    assert run(
-        hammer.report_after_delay('contact@news.unchartedvalues.com', 'Solar', 'Spam', 7)
-    ) == (message, None)
+    assert run(hammer.report_after_delay('contact@news.unchartedvalues.com', 'Solar', 7)) == (
+        message,
+        None,
+    )
     fetch.assert_awaited_once_with('contact@news.unchartedvalues.com', 'Solar')
-    report.assert_awaited_once_with('Spam', message)
+    report.assert_awaited_once_with('contact@news.unchartedvalues.com', message)
     assert events == (['wait', 'report'] if message else ['report'])
     if message:
         wait.assert_awaited_once_with(7)
@@ -119,7 +120,7 @@ def test_cancelled_delay_does_not_report(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(hammer, 'sleep', AsyncMock(side_effect=CancelledError))
     monkeypatch.setattr(hammer, 'report', report := AsyncMock())
     with raises(CancelledError):
-        run(hammer.report_after_delay('contact@news.unchartedvalues.com', '', 'Spam', 7))
+        run(hammer.report_after_delay('contact@news.unchartedvalues.com', '', 7))
     report.assert_not_awaited()
 
 
@@ -146,7 +147,10 @@ def test_report_propagates_http_failures(
         async with TestServer(application) as server:
             await json_session('TEST_API_KEY', str(server.make_url('/')), 'submissions/list')(
                 unwrap(report)
-            )('Spam', b'From: contact@news.unchartedvalues.com\r\n\r\nBody')
+            )(
+                'contact@news.unchartedvalues.com',
+                b'From: contact@news.unchartedvalues.com\r\n\r\nBody',
+            )
 
     monkeypatch.setenv('TEST_API_KEY', 'key')
     with caplog.at_level(INFO), raises(ClientResponseError) as error:

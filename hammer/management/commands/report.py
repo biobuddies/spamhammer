@@ -16,20 +16,17 @@ class Command(BaseCommand):
     help = __doc__
 
     def add_arguments(self, parser: CommandParser) -> None:
-        """Take one spam argument, an optional reason, and a cancellation window."""
+        """Take a spam argument and a cancellation window."""
         parser.add_argument('spam', help='sender address, then optionally a space and subject')
         parser.add_argument(
             '--delay-seconds', default=60, help='to cancel before reporting', type=int
         )
-        parser.add_argument('--reason', help='for Spamhaus; blank or omitted names the sender')
 
-    def handle(
-        self, *_args: object, delay_seconds: int, reason: str | None, spam: str, **_options: object
-    ) -> None:
+    def handle(self, *_args: object, delay_seconds: int, spam: str, **_options: object) -> None:
         """Report the latest matching inbox message to Spamhaus."""
-        run(self.handle_async(spam, delay_seconds=delay_seconds, reason=reason))
+        run(self.handle_async(spam, delay_seconds=delay_seconds))
 
-    async def handle_async(self, spam: str, *, delay_seconds: int, reason: str | None) -> None:
+    async def handle_async(self, spam: str, *, delay_seconds: int) -> None:
         """Report spam and sweep matching mail in one event loop."""
         if delay_seconds < 0:
             raise CommandError('--delay-seconds must be nonnegative')
@@ -42,9 +39,7 @@ class Command(BaseCommand):
             else f'kill {getpid()}',
         )
         try:
-            await report_after_delay(
-                sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
-            )
+            await report_after_delay(sender, subject, delay_seconds)
         except Exception:
             print(await sweep_summary(sender, dry_run=False))
             raise

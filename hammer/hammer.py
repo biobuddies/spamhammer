@@ -113,7 +113,7 @@ async def fetch_spam(imap: IMAP4_SSL, sender: str, subject: str) -> bytes | None
 
 
 @json_session('SPAMHAUS_API_KEY', 'https://submit.spamhaus.org/portal/api/v1/', 'submissions/list')
-async def report(session: ClientSession, reason: str, message: bytes | None) -> Json:
+async def report(session: ClientSession, sender: str, message: bytes | None) -> Json:
     """Submit the raw message, if any, to Spamhaus as spam; 208 means already reported."""
     if message is None:
         logger.info('No INBOX message matches')
@@ -121,7 +121,7 @@ async def report(session: ClientSession, reason: str, message: bytes | None) -> 
     async with session.post(
         'submissions/add/email',
         json={
-            'reason': reason,
+            'reason': f'Unsolicited email from {sender}',
             'source': {'object': message.decode(errors='replace')},
             'threat_type': 'spam',
         },
@@ -132,11 +132,11 @@ async def report(session: ClientSession, reason: str, message: bytes | None) -> 
 
 
 async def report_after_delay(
-    sender: str, subject: str, reason: str, delay_seconds: int
+    sender: str, subject: str, delay_seconds: int
 ) -> tuple[bytes | None, Json]:
     """Wait asynchronously before reporting a matching message; return it and the submission."""
     message = await fetch_spam(sender, subject)
     if message:
         logger.info('Reporting in %d seconds', delay_seconds)
         await sleep(delay_seconds)
-    return message, await report(reason, message)
+    return message, await report(sender, message)
