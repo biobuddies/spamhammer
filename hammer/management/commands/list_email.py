@@ -8,7 +8,7 @@ from functools import wraps
 from logging import getLogger
 from os import environ
 from re import split
-from typing import Any, Concatenate
+from typing import Any, Concatenate, override
 from urllib.parse import ParseResult, unquote, urlparse
 
 from aioimaplib import IMAP4_SSL, Response
@@ -20,6 +20,17 @@ from hammer.one_click import find_unsubscribe_url
 logger = getLogger(__name__)
 type Runner[**P, T] = Callable[P, Coroutine[Any, Any, T | None]]
 type Session[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T]]
+
+
+class ImapClient(IMAP4_SSL):
+    """Raise a connection error when the server rejects login."""
+
+    @override
+    async def login(self, user: str, password: str) -> Response:
+        response = await super().login(user, password)
+        if response.result != 'OK':
+            raise ConnectionError(f'{self.host} LOGIN {response.result}')
+        return response
 
 
 def read_email_url() -> ParseResult | None:
@@ -48,11 +59,9 @@ def imap_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runn
         async def inner(*args: P.args, **kwargs: P.kwargs) -> T | None:
             if not (parsed := read_email_url()):
                 return off
-            imap = IMAP4_SSL(parsed.hostname or '', parsed.port or 993)
+            imap = ImapClient(parsed.hostname or '', parsed.port or 993)
             await imap.wait_hello_from_server()
-            login = await imap.login(unquote(parsed.username or ''), unquote(parsed.password or ''))
-            if login.result != 'OK':
-                raise ConnectionError(f'{parsed.hostname} LOGIN {login.result}')
+            await imap.login(unquote(parsed.username or ''), unquote(parsed.password or ''))
             logger.info('%s LOGIN OK', parsed.hostname)
             try:
                 return await function(imap, *args, **kwargs)

@@ -4,9 +4,9 @@ from asyncio import run
 from inspect import unwrap
 from logging import INFO
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
-from aioimaplib import Response
+from aioimaplib import IMAP4_SSL, Response
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -40,6 +40,17 @@ def test_list_email_defaults_off(caplog: LogCaptureFixture, monkeypatch: MonkeyP
     with caplog.at_level(INFO):
         call_command('list_email')
     assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
+
+
+def test_imap_session_raises_on_rejected_login(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
+    monkeypatch.setattr(IMAP4_SSL, 'create_client', Mock())
+    monkeypatch.setattr(IMAP4_SSL, 'wait_hello_from_server', AsyncMock())
+    monkeypatch.setattr(IMAP4_SSL, 'login', AsyncMock(return_value=Response('NO', [])))
+    monkeypatch.setattr(IMAP4_SSL, 'select', select := AsyncMock())
+    with raises(ConnectionError, match=r'imap\.biobuddi\.es LOGIN NO'):
+        run(list_email())
+    select.assert_not_awaited()
 
 
 def test_list_email_stops_after_failed_search() -> None:
