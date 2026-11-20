@@ -13,16 +13,18 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
-from hammer.management.commands import hammer, sweep
-from hammer.management.commands.hammer import Json, fetch_spam, json_session, report
+from hammer import hammer
+from hammer.hammer import Json, fetch_spam, json_session, report
+from hammer.management.commands import report as report_command
+from hammer.management.commands import sweep
 
 
 @mark.parametrize('key', ('off', 'off until I find it'))
-def test_hammer_off(caplog: LogCaptureFixture, key: str, monkeypatch: MonkeyPatch) -> None:
+def test_report_off(caplog: LogCaptureFixture, key: str, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv('SPAMHAMMER_EMAIL_URLS', raising=False)
     monkeypatch.setenv('SPAMHAUS_API_KEY', key)
     with caplog.at_level(INFO):
-        call_command('hammer', 'contact@news.unchartedvalues.com')
+        call_command('report', 'contact@news.unchartedvalues.com')
     assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
     assert 'SPAMHAUS_API_KEY off' in caplog.text
 
@@ -41,31 +43,31 @@ def test_hammer_off(caplog: LogCaptureFixture, key: str, monkeypatch: MonkeyPatc
         ),
     ),
 )
-def test_hammer_spam(caplog: LogCaptureFixture, logged: str, spam: str) -> None:
+def test_report_spam(caplog: LogCaptureFixture, logged: str, spam: str) -> None:
     with caplog.at_level(INFO):
-        call_command('hammer', spam)
-    assert f'Hammering {logged}' in caplog.text
+        call_command('report', spam)
+    assert f'Reporting {logged}' in caplog.text
 
 
-def test_hammer_rejects_empty_key(monkeypatch: MonkeyPatch) -> None:
+def test_report_rejects_empty_key(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv('SPAMHAMMER_EMAIL_URLS', raising=False)
     monkeypatch.setenv('SPAMHAUS_API_KEY', '')
     with raises(ImproperlyConfigured):
-        call_command('hammer', 'contact@news.unchartedvalues.com')
+        call_command('report', 'contact@news.unchartedvalues.com')
 
 
-def test_hammer_logs_cancel_command(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+def test_report_logs_cancel_command(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv('GITHUB_REPOSITORY', 'biobuddies/spamhammer')
     monkeypatch.setenv('GITHUB_RUN_ID', '42')
     with caplog.at_level(INFO):
-        call_command('hammer', 'contact@news.unchartedvalues.com')
+        call_command('report', 'contact@news.unchartedvalues.com')
     assert 'Cancel: gh run cancel 42 --repo biobuddies/spamhammer' in caplog.text
 
 
-def test_hammer_logs_kill_command(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+def test_report_logs_kill_command(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv('GITHUB_RUN_ID', raising=False)
     with caplog.at_level(INFO):
-        call_command('hammer', 'contact@news.unchartedvalues.com')
+        call_command('report', 'contact@news.unchartedvalues.com')
     assert f'Cancel: kill {getpid()}' in caplog.text
 
 
@@ -220,7 +222,7 @@ def test_report_propagates_http_failures(
 def test_report_rejects_negative_delay(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(hammer, 'fetch_spam', fetch := AsyncMock())
     with raises(CommandError, match='nonnegative'):
-        call_command('hammer', 'contact@news.unchartedvalues.com', '--delay-seconds=-1')
+        call_command('report', 'contact@news.unchartedvalues.com', '--delay-seconds=-1')
     fetch.assert_not_awaited()
 
 
@@ -235,7 +237,7 @@ def test_fetch_spam_rejects_imap_failures(operation: str) -> None:
 
 
 @mark.parametrize('submission', ({'id': 'abc'}, {}, None))
-def test_hammer_sweeps_regardless_of_report(
+def test_report_sweeps_regardless_of_result(
     monkeypatch: MonkeyPatch, submission: Json | None
 ) -> None:
     loops = []
@@ -250,12 +252,12 @@ def test_hammer_sweeps_regardless_of_report(
         loops.append(get_running_loop())
         return Counter()
 
-    monkeypatch.setattr(hammer, 'report_after_delay', submit)
+    monkeypatch.setattr(report_command, 'report_after_delay', submit)
     monkeypatch.setattr(sweep, 'sweep', cleanup := AsyncMock(side_effect=move))
     if submission is None:
         with raises(CommandError, match='Report failed'):
-            call_command('hammer', 'contact@news.unchartedvalues.com')
+            call_command('report', 'contact@news.unchartedvalues.com')
     else:
-        call_command('hammer', 'contact@news.unchartedvalues.com')
+        call_command('report', 'contact@news.unchartedvalues.com')
     cleanup.assert_awaited_once_with('contact@news.unchartedvalues.com', dry_run=False)
     assert loops[0] is loops[1]
