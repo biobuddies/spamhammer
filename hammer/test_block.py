@@ -8,14 +8,13 @@ from logging import INFO
 from pathlib import Path
 from unittest.mock import AsyncMock
 
-from aioimaplib import Response
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 from sievelib.parser import Parser
 
 from hammer.management.commands import block
-from hammer.management.commands.block import folder_exists, insert_rule
+from hammer.management.commands.block import check_folder, insert_rule
 
 RULE = 'if header :contains "Received" "mta.exacttarget.com" { fileinto "Junk"; stop; }\n'
 
@@ -56,7 +55,7 @@ def test_block_surfaces_failed_writes(
     responses = {'CHECKSCRIPT': b'OK\r\n', 'PUTSCRIPT': b'OK\r\n', 'SETACTIVE': b'OK\r\n'}
     responses[operation] = b'NO "Refused"\r\n'
     sent = sieve_server(b'OK\r\n', *responses.values(), b'OK\r\n')
-    monkeypatch.setattr(block, 'folder_exists', AsyncMock(return_value=True))
+    monkeypatch.setattr(block, 'check_folder', AsyncMock())
     with raises(ConnectionError, match=f'{operation} NO Refused'):
         call_command('block', 'From', 'unchartedvalues.com')
     script = (
@@ -85,20 +84,16 @@ def test_insert_rule_parses_and_matches_real_spam() -> None:
     assert 'thealphapaths.com' in spam['From']
 
 
-@mark.parametrize('status', ('OK', 'NO', 'BAD'))
-def test_folder_exists(status: str) -> None:
+def test_check_folder_uses_exact_mailbox() -> None:
     imap = AsyncMock()
-    imap.status.return_value = Response('OK', [])
-    if status != 'OK':
-        imap.status.side_effect = CommandError(f'STATUS {status}')
-    assert run(unwrap(folder_exists)(imap, 'Spam*')) == (status == 'OK')
+    run(unwrap(check_folder)(imap, 'Spam*'))
     imap.status.assert_awaited_once_with('"Spam*"', '(UIDVALIDITY)')
 
 
 def test_block_requires_folder(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setattr(block, 'folder_exists', AsyncMock(return_value=False))
+    monkeypatch.setattr(block, 'check_folder', AsyncMock(side_effect=CommandError('STATUS NO')))
     monkeypatch.setattr(block, 'update_script', update := AsyncMock())
-    with raises(CommandError, match='No Junk folder'):
+    with raises(CommandError, match='STATUS NO'):
         call_command('block', 'From', 'unchartedvalues.com', '--folder=Junk')
     update.assert_not_called()
 
@@ -112,6 +107,6 @@ def test_block_leaves_crlf_script_with_rule_alone(
     sent = sieve_server(
         b'"USER" ACTIVE\r\nOK\r\n', b'{%d}\r\n%s\r\nOK\r\n' % (len(script), script), b'OK\r\n'
     )
-    monkeypatch.setattr(block, 'folder_exists', AsyncMock(return_value=True))
+    monkeypatch.setattr(block, 'check_folder', AsyncMock())
     call_command('block', 'Received', 'mta.exacttarget.com')
     assert sent() == b'LISTSCRIPTS\r\nGETSCRIPT "USER"\r\nLOGOUT\r\n'

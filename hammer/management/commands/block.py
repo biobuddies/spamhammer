@@ -8,7 +8,7 @@ from logging import getLogger
 from re import sub
 
 from aioimaplib import IMAP4_SSL
-from django.core.management.base import BaseCommand, CommandError, CommandParser
+from django.core.management.base import BaseCommand, CommandParser
 
 from hammer.management.commands.list_email import imap_session
 from hammer.managesieve import ManageSieve, sieve_session
@@ -46,14 +46,10 @@ async def update_script(sieve: ManageSieve, header: str, value: str, folder: str
     logger.info('Sieve %s after:\n%s', name, updated)
 
 
-@imap_session(off=True)
-async def folder_exists(imap: IMAP4_SSL, folder: str) -> bool:
+@imap_session()
+async def check_folder(imap: IMAP4_SSL, folder: str) -> None:
     """Check the exact folder, without treating wildcard characters as a LIST pattern."""
-    try:
-        await imap.status(f'"{folder}"', '(UIDVALIDITY)')
-    except CommandError:
-        return False
-    return True
+    await imap.status(f'"{folder}"', '(UIDVALIDITY)')
 
 
 @imap_session(off=Counter())
@@ -101,6 +97,5 @@ class Command(BaseCommand):
                 sep='\n',
             )
             return
-        if not run(folder_exists(folder)):
-            raise CommandError(f'No {folder} folder; Sieve would keep matches in INBOX')
+        run(check_folder(folder))
         run(update_script(header, value, folder))
