@@ -1,0 +1,360 @@
+Return-Path: <bounce-R5J2GFGWWHVEVEEZT35DI4MR4U.500025@bounce.news.meadowbrookupdates.com>
+Received: from lmtpproxyd ([10.17.8.18])
+	 by imap.biobuddi.es (Cyrus 3.6.6.4-1.102.el9.biobuddi_16 Fedora) with LMTPSA
+	 (version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256 verify=YES);
+	 Thu, 19 Nov 2026 05:01:14 +0100
+X-Cyrus-Session-Id: cyrus-imapd-1795060874-1327288-4-2452750925796839880
+X-Sieve: CMU Sieve 3.0
+Received: from biobuddi.es ([10.17.8.252])
+	 by imap.biobuddi.es (Cyrus 3.6.6.4-1.102.el9.biobuddi_16 Fedora) with LMTPA;
+	 Thu, 19 Nov 2026 05:01:14 +0100
+X-Cyrus-Session-Id: cyrus-imapd-1795060874-3294892-1-6123536156994708220
+X-Virus-Scanned: amavis at biobuddi.es
+X-Spam-Flag: NO
+X-Spam-Score: -1.989
+X-Spam-Level:
+X-Spam-Status: No, score=-1.989 tagged_above=-999 required=5
+ tests=[BAYES_00=-1.9, DKIM_SIGNED=0.1, DKIM_VALID=-0.1, DKIM_VALID_AU=-0.1,
+ HTML_MESSAGE=0.001, INVESTMENT_ADVICE=0.1, SPF_HELO_NONE=0.001,
+ SPF_PASS=-0.001, T_KAM_HTML_FONT_INVALID=0.01, URIBL_AMI_WHITE=-0.1]
+ autolearn=no autolearn_force=no
+Authentication-Results: biobuddi.es (amavis); dkim=pass (2048-bit key)
+ header.d=news.meadowbrookupdates.com header.b="xFxHJqe2";
+ dkim=pass (2048-bit key) header.d=s50.y.mc.salesforce.com header.b="XQnJxaUZ"
+Received-SPF: Pass identity=mailfrom; client-ip=161.71.76.248; helo=mta.news.meadowbrookupdates.com; envelope-from=bounce-R5J2GFGWWHVEVEEZT35DI4MR4U.500025@bounce.news.meadowbrookupdates.com;
+Received: from mta.news.meadowbrookupdates.com (mta.news.meadowbrookupdates.com [161.71.76.248])
+	by mx.biobuddi.es (Postfix) with ESMTPS id 0000000
+	for <busybuddy@biobuddi.es>; Thu, 19 Nov 2026 04:01:12 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; s=50dkim1; d=news.meadowbrookupdates.com;
+ h=From:To:Subject:Date:List-Unsubscribe:List-Unsubscribe-Post:MIME-Version:
+ Message-ID:Content-Type; i=contact@news.meadowbrookupdates.com;
+ bh=HviHCSEPlvNIz43A28SapBY13UUVMsj+FH82bxAcTeA=;
+ b=xFxHJqe2zlHBx2K36Zezy4HfRqnukO0Rv9AItaaTWETH8/mLA3s5yJgQ5yKQRT5kfqe67MwDxf83
+   v+TKS/v44xKwjfysp3HP+KwlfHliRGSmYAoLjXTw+3hzd3248U4PCJwywh4cYdmj0P83yAiBLR4r
+   YuCUt1peea13xUwoB62nvn4CzfROB6hLoCw4xFCQA6ZGCgTJqQezRBpQKSB8cnA091G3mlA/AIAL
+   Q+zRuov/6LljQwjiTKLJUwki85omxmQGHOI9mKBSBU+g6tyq9M/er8TdI0FeGC50g6q3/qN72M19
+   Z8IUigpeV9jkCIS82wA+67I2c8NS2nvlOyyQdw==
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; s=fbldkim50; d=s50.y.mc.salesforce.com;
+ h=From:To:Subject:Date:List-Unsubscribe:List-Unsubscribe-Post:MIME-Version:
+ Message-ID:Content-Type;
+ bh=HviHCSEPlvNIz43A28SapBY13UUVMsj+FH82bxAcTeA=;
+ b=XQnJxaUZqiHDO8TI2uPSzNLTMi7zSlf6YIDovebOVGt2OM7Fjz5cyNjka7vRCVSOClqMQd95MIk1
+   PrlpooX9vQlvaQs/Zm1+lEZL46G9AVD1EyncelYIJ9pVdO4dhEVuKe1AEoknzIgp2vMKLxt5t75z
+   UC1qv+J+EDjg8/yfafz5lyULFjSzRB5exyK3ozBQyLjoBJdfXVJgEPdf8wNnI0t3yBWCAJsybjrm
+   htobVS0069Uuzz9ytDdYNiW/TY3qIs5Gh36CKKjNx1M/C3jzVTITPFi9//pP4LOrzLeKp/frV7oE
+   19iEh1cQsq70VFr7l+Zh3CDVq2uC0LPGvxuPWg==
+Received: by mta.news.meadowbrookupdates.com id hvpq8g39mjcm for <busybuddy@biobuddi.es>; Thu, 19 Nov 2026 04:01:12 +0000 (envelope-from <bounce-R5J2GFGWWHVEVEEZT35DI4MR4U.500025@bounce.news.meadowbrookupdates.com>)
+From: "Meadow Brook Updates" <contact@news.meadowbrookupdates.com>
+To: <busybuddy@biobuddi.es>
+Subject: =?UTF-8?B?RWxvbiBNdXNr4oCmIEEgVG90YWwgRnJhdWQ/?=
+Date: Wed, 18 Nov 2026 22:01:12 -0600
+List-Unsubscribe: <https://click.news.meadowbrookupdates.com/subscription_center.aspx?jwt=REDACTED-RECIPIENT-TOKEN>, <mailto:leave-REDACTED-RECIPIENT-TOKEN.500025@leave.news.meadowbrookupdates.com>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+MIME-Version: 1.0
+X-SFMC-Stack: 50
+x-job: 510012695_836944
+Message-ID: <fda286e3-7a51-4bfe-9df9-3bc27bd3cdd8@fra3s50mta0830.xt.local>
+Content-Type: multipart/alternative;
+	boundary="dKN3G749lR0A=_?:"
+
+This is a multi-part message in MIME format.
+
+--dKN3G749lR0A=_?:
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+
+Editor&rsquo;s Note: We are dedicated to provide readers like you with unique opportunities. The message below from one of our business associates is one we believe you should take a serious look at. Former tech executive Jeff Brown, the man who picked Nvidia in 2016, before it jumped as high as 37,800%, just got inside a Cybercab, Elon Musk&#39;s new car that has no steering wheel or pedals&hellip; and what happens will shock everyone. 
+https://click.news.meadowbrookupdates.com/?qs=REDACTED-RECIPIENT-TOKEN 
+Click here to see the details  or read more below.
+
+Dear Reader,
+
+Warning&hellip;
+
+If you&#39;re an Elon Musk hater&hellip;
+
+You&#39;ll probably cry yourself to sleep after you 
+https://click.news.meadowbrookupdates.com/?qs=REDACTED-RECIPIENT-TOKEN 
+click here and watch this footage of his latest technology. 
+
+He&#39;s proving everyone wrong again.
+
+Just a few years ago&hellip;
+
+They laughed at him&hellip;
+
+And said that what he was planning to do was impossible.
+
+In 2018, the New York Post even called Elon "a total fraud"...
+
+But 
+https://click.news.meadowbrookupdates.com/?qs=REDACTED-RECIPIENT-TOKEN 
+I just caught his new technology on camera (click here to see it)... 
+
+And it proves the media was 100% wrong about Elon.
+
+This is pure genius&hellip;
+
+And it&#39;s about to take America by storm.
+
+We have so much to look forward to,
+
+Jeff Brown
+
+Founder & CEO, Brownstone Research
+
+ 
+
+ 
+
+ 
+
+This ad is sent on behalf of Brownstone Research at 1125 N. Charles Street, Baltimore, MD 21201. If you&rsquo;re not interested in this opportunity, please 
+https://click.news.meadowbrookupdates.com/?qs=REDACTED-RECIPIENT-TOKEN 
+click here  and remove yourself from these offers.
+
+ 
+Trading involves risk. The information provided by Meadow Brook Updates is for informational and educational purposes only and does NOT constitute trading or investment advice. Meadow Brook Updates, its Editors, Publisher, and affiliates make no guarantee regarding any results that may be obtained from the information provided. Past performance is no guarantee of future results. Recipients are responsible for conducting their own research and due diligence before making any trading, investment, or purchasing decisions and assume full responsibility for any actions taken based on information provided by Meadow Brook Updates.
+ 
+
+If you would like to unsubscribe from receiving offers, click the link below.
+
+ 
+This email was sent by: ⠀
+
+Al Jerozolimskie 85 Warsaw, Mazowieckie, 02-001, PL
+
+https://click.news.meadowbrookupdates.com/profile_center.aspx?qs=REDACTED-RECIPIENT-TOKEN 
+Update Profile 
+
+https://click.news.meadowbrookupdates.com/unsub_center.aspx?qs=REDACTED-RECIPIENT-TOKEN 
+Unsubscribe 
+
+https://click.news.meadowbrookupdates.com/subscription_center.aspx?qs=REDACTED-RECIPIENT-TOKEN 
+Manage Subscriptions 
+
+
+--dKN3G749lR0A=_?:
+Content-Type: text/html;
+	charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional //EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:v="urn:schemas-microsoft-com:vml">
+<head><!--[if gte mso 9]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]--><meta content="text/html; charset=utf-8" http-equiv="Content-Type"/><meta content="width=device-width" name="viewport"/><!--[if !mso]>  <meta content="IE=edge" http-equiv="X-UA-Compatible" /><!--<![endif]-->
+	<title></title>
+	<!--[if !mso]><!--<![endif]-->
+	<style type="text/css">body {
+   margin: 0;
+   padding: 0;
+  }
+
+  table,
+  td,
+  tr {
+   vertical-align: top;
+   border-collapse: collapse;
+  }
+
+  * {
+   line-height: inherit;
+  }
+
+  a[x-apple-data-detectors=true] {
+   color: inherit !important;
+   text-decoration: none !important;
+  }
+	</style>
+	<style id="media-query" type="text/css">@media (max-width: 520px) {
+
+   .block-grid,
+   .col {
+    min-width: 320px !important;
+    max-width: 100% !important;
+    display: block !important;
+   }
+
+   .block-grid {
+    width: 100% !important;
+   }
+
+   .col {
+    width: 100% !important;
+   }
+
+   .col_cont {
+    margin: 0 auto;
+   }
+
+   img.fullwidth,
+   img.fullwidthOnMobile {
+    max-width: 100% !important;
+   }
+
+   .no-stack .col {
+    min-width: 0 !important;
+    display: table-cell !important;
+   }
+
+   .no-stack.two-up .col {
+    width: 50% !important;
+   }
+
+   .no-stack .col.num2 {
+    width: 16.6% !important;
+   }
+
+   .no-stack .col.num3 {
+    width: 25% !important;
+   }
+
+   .no-stack .col.num4 {
+    width: 33% !important;
+   }
+
+   .no-stack .col.num5 {
+    width: 41.6% !important;
+   }
+
+   .no-stack .col.num6 {
+    width: 50% !important;
+   }
+
+   .no-stack .col.num7 {
+    width: 58.3% !important;
+   }
+
+   .no-stack .col.num8 {
+    width: 66.6% !important;
+   }
+
+   .no-stack .col.num9 {
+    width: 75% !important;
+   }
+
+   .no-stack .col.num10 {
+    width: 83.3% !important;
+   }
+
+   .video-block {
+    max-width: none !important;
+   }
+
+   .mobile_hide {
+    min-height: 0px;
+    max-height: 0px;
+    max-width: 0px;
+    display: none;
+    overflow: hidden;
+    font-size: 0px;
+   }
+
+   .desktop_hide {
+    display: block !important;
+    max-height: none !important;
+   }
+  }
+	</style>
+</head>
+<body class="clean-body" style="margin: 0; padding: 0; -webkit-text-size-adjust: 100%; background-color: #FFFFFF;"><style type="text/css">
+div.preheader 
+{ display: none !important; } 
+</style>
+<div class="preheader" style="font-size: 1px; display: none !important;">I’ll get straight to the point because there’s not much time left…</div><!--[if IE]><div class="ie-browser"><![endif]-->
+<table bgcolor="#FFFFFF" cellpadding="0" cellspacing="0" class="nl-container" role="presentation" style="table-layout: fixed; vertical-align: top; min-width: 320px; border-spacing: 0; border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; background-color: #FFFFFF; width: 100%;" valign="top" width="100%">
+	<tbody>
+		<tr style="vertical-align: top;" valign="top">
+			<td style="word-break: break-word; vertical-align: top;" valign="top"><!--[if (mso)|(IE)]><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" style="background-color:#FFFFFF"><![endif]-->
+			<div style="background-color:transparent;">
+			<div class="block-grid" style="min-width: 320px; max-width: 500px; overflow-wrap: break-word; word-wrap: break-word; word-break: break-word; Margin: 0 auto; background-color: transparent;">
+			<div style="border-collapse: collapse;display: table;width: 100%;background-color:transparent;"><!--[if (mso)|(IE)]><table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:transparent;"><tr><td align="center"><table cellpadding="0" cellspacing="0" border="0" style="width:500px"><tr class="layout-full-width" style="background-color:transparent"><![endif]--><!--[if (mso)|(IE)]><td align="center" width="500" style="background-color:transparent;width:500px; border-top: 0px solid transparent; border-left: 0px solid transparent; border-bottom: 0px solid transparent; border-right: 0px solid transparent;" valign="top"><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="padding-right: 0px; padding-left: 0px; padding-top:5px; padding-bottom:5px;"><![endif]-->
+			<div class="col num12" style="min-width: 320px; max-width: 500px; display: table-cell; vertical-align: top; width: 500px;">
+			<div class="col_cont" style="width:100% !important;"><!--[if (!mso)&(!IE)]>    <div style="border-top:0px solid transparent; border-left:0px solid transparent; border-bottom:0px solid transparent; border-right:0px solid transparent; padding-top:5px; padding-bottom:5px; padding-right: 0px; padding-left: 0px;"><!--<![endif]--><!--[if mso]><table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right: 10px; padding-left: 10px; padding-top: 10px; padding-bottom: 10px; font-family: Verdana, sans-serif"><![endif]-->
+			<div style="color:#393d47;font-family:Verdana, Geneva, sans-serif;line-height:1.5;padding-top:10px;padding-right:10px;padding-bottom:10px;padding-left:10px;">
+			<div class="txtTinyMce-wrapper" style="font-size: 12px; line-height: 1.5; font-family: Verdana, Geneva, sans-serif; color: #393d47; mso-line-height-alt: 18px;">
+			<hr />
+			<p style="margin: 0; line-height: 1.5; word-break: break-word; text-align: justify; font-family: Verdana, Geneva, sans-serif; font-size: 12px; mso-line-height-alt: 18px; margin-top: 0; margin-bottom: 0;"><span>Editor&rsquo;s Note: We are dedicated to provide readers like you with unique opportunities. The message below from one of our business associates is one we believe you should take a serious look at.&nbsp;</span>Former tech executive Jeff Brown, the man who picked Nvidia in 2016, before it jumped as high as 37,800%, just got inside a Cybercab, Elon Musk&#39;s new car that has no steering wheel or pedals&hellip; and what happens will shock everyone. <strong>
+<a href="https://click.news.meadowbrookupdates.com/?qs=REDACTED-RECIPIENT-TOKEN" style="color: #1a5dab; text-decoration: underline;">Click here to see the details</a></strong> or read more below.</p>
+
+			<hr />
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">Dear Reader,</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">Warning&hellip;</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">If you&#39;re an Elon Musk hater&hellip;</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">You&#39;ll probably cry yourself to sleep after you <b><u><a href="https://click.news.meadowbrookupdates.com/?qs=REDACTED-RECIPIENT-TOKEN" style="color: #1a5dab; text-decoration: underline;">click here and watch this footage of his latest technology.</a></u></b></p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">He&#39;s proving everyone wrong again.</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">Just a few years ago&hellip;</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">They laughed at him&hellip;</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">And said that what he was planning to do was impossible.</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">In 2018, the <em>New York Post</em> even called Elon &quot;a total fraud&quot;...</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">But <strong><a href="https://click.news.meadowbrookupdates.com/?qs=REDACTED-RECIPIENT-TOKEN" style="color: #1a5dab; text-decoration: underline;">I just caught his new technology on camera (click here to see it)...</a></strong></p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">And it proves the media was 100% wrong about Elon.</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">This is pure genius&hellip;</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">And it&#39;s about to take America by storm.</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">We have so much to look forward to,</p>
+
+			<p style="font-family: Verdana; font-size: 16px; text-align: justify;">Jeff Brown<br />
+			Founder &amp; CEO, Brownstone Research</p>
+
+			<p style="font-family: Verdana, Geneva, sans-serif; font-size: 16px; text-align: justify">&nbsp;</p>
+
+			<p style="font-family: Verdana, Geneva, sans-serif; font-size: 16px; text-align: justify">&nbsp;</p>
+
+			<p style="font-family: Verdana, Geneva, sans-serif; font-size: 16px; text-align: justify">&nbsp;</p>
+
+			<div style="color:#393d47;font-family:Verdana, Geneva, sans-serif;line-height:1.5;padding-top:10px;padding-right:10px;padding-bottom:10px;padding-left:10px;">
+			<div class="txtTinyMce-wrapper" style="font-size: 12px; line-height: 1.5; font-family: Verdana, Geneva, sans-serif; color: #393d47; mso-line-height-alt: 18px;">
+			<p style="margin: 0; text-align: justify; line-height: 1.5; word-break: break-word; font-size: 10px; font-family: Verdana, Geneva, sans-serif; mso-line-height-alt: 15px; margin-top: 0; margin-bottom: 0;">This ad is sent on behalf of Brownstone Research at 1125 N. Charles Street, Baltimore, MD 21201. If you&rsquo;re not interested in this opportunity, please <a href="https://click.news.meadowbrookupdates.com/?qs=REDACTED-RECIPIENT-TOKEN" rel="noopener noreferrer" target="_blank">click here</a> and remove yourself from these offers.</p>
+			<!-- Footer placeholder -->
+
+			<p style="margin: 0; font-family: Verdana, Geneva, sans-serif; font-size: 10px; line-height: 1.5; mso-line-height-alt: 15px; text-align: justify;">&nbsp;</p>
+
+			<div style="font-family: Verdana, Geneva, sans-serif; font-size: 10px; line-height: 1.5; mso-line-height-alt: 15px; color: #393d47; text-align: justify; margin: 0; padding: 0;">Trading involves risk. The information provided by Meadow Brook Updates is for informational and educational purposes only and does NOT constitute trading or investment advice. Meadow Brook Updates, its Editors, Publisher, and affiliates make no guarantee regarding any results that may be obtained from the information provided. Past performance is no guarantee of future results. Recipients are responsible for conducting their own research and due diligence before making any trading, investment, or purchasing decisions and assume full responsibility for any actions taken based on information provided by Meadow Brook Updates.</div>
+
+			<p style="margin: 0; font-family: Verdana, Geneva, sans-serif; font-size: 10px; line-height: 1.5; mso-line-height-alt: 15px; text-align: justify;">&nbsp;</p>
+
+			<p style="margin: 0; line-height: 1.5; word-break: break-word; text-align: center; font-family: Verdana, Geneva, sans-serif; font-size: 10px; mso-line-height-alt: 15px;">If you would like to unsubscribe from receiving offers, click the link below.</p>
+
+			<p style="margin: 0; font-family: Verdana, Geneva, sans-serif; font-size: 10px; line-height: 1.5; mso-line-height-alt: 15px;">&nbsp;</p>
+			</div>
+			</div>
+			<!--[if mso]></td></tr></table><![endif]-->
+
+			<div style="font-size:16px;text-align:center;font-family:Arial, Helvetica Neue, Helvetica, sans-serif">
+			<div class="our-class" style="text-align: center;"><span style="font-size:9px;"><span style="font-family:verdana,geneva,sans-serif;">This email was sent by: <b>⠀</b><br />
+			Al Jerozolimskie 85 Warsaw, Mazowieckie, 02-001, PL<br />
+			<a href="https://click.news.meadowbrookupdates.com/profile_center.aspx?qs=REDACTED-RECIPIENT-TOKEN">Update Profile</a><br />
+			<a href="https://click.news.meadowbrookupdates.com/unsub_center.aspx?qs=REDACTED-RECIPIENT-TOKEN">Unsubscribe</a><br />
+			<a href="https://click.news.meadowbrookupdates.com/subscription_center.aspx?qs=REDACTED-RECIPIENT-TOKEN">Manage Subscriptions</a></span></span></div>
+			</div>
+			<!--[if (!mso)&(!IE)]></div>    <!--<![endif]--></div>
+			</div>
+			<!--[if (mso)|(IE)]></td></tr></table><![endif]--><!--[if (mso)|(IE)]></td></tr></table></td></tr></table><![endif]--></div>
+			</div>
+			</div>
+			<!--[if (mso)|(IE)]></td></tr></table><![endif]--></div>
+			</div>
+			</td>
+		</tr>
+	</tbody>
+</table>
+<!--[if (IE)]></div><![endif]--><img src="https://click.news.meadowbrookupdates.com/open.aspx?qs=REDACTED-RECIPIENT-TOKEN&d=500025&bmt=0" width="1" height="1" alt=""></custom></body>
+</html>
+
+--dKN3G749lR0A=_?:--
+
