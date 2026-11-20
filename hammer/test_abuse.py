@@ -12,39 +12,39 @@ from hammer.abuse import PLATFORMS, Platform, compose_report, email_reports, mat
 
 SALESFORCE = PLATFORMS[0]
 SPAM = (Path(__file__).parent / 'spam' / 'thealphapaths.eml').read_bytes()
+AUTHENTICATED_SPAM = (
+    b'Authentication-Results: biobuddi.es (amavis);\r\n'
+    b' dkim=pass (2048-bit key) header.d=s51.y.mc.salesforce.com\r\n' + SPAM
+)
 
 
 @mark.parametrize(
     ('header', 'platforms'),
     (
         (
-            (
-                b'Received: from alv174.mta.exacttarget.com (alv174.mta.exacttarget.com'
-                b' [159.92.166.174])'
-            ),
-            [SALESFORCE],
-        ),
-        (b'Received: by alv174.mta.exacttarget.com id hu6r0i39mjc3', [SALESFORCE]),
-        (
-            (
-                b'DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; s=fbldkim51;'
-                b' d=s51.y.mc.salesforce.com;'
-            ),
+            b'Authentication-Results: biobuddi.es; dkim=pass header.d=alv174.mta.exacttarget.com',
             [SALESFORCE],
         ),
         (
+            b'Authentication-Results: imap.biobuddi.es; DKIM=PASS header.d=s51.y.mc.salesforce.com',
+            [SALESFORCE],
+        ),
+        (b'Authentication-Results: biobuddi.es; dkim=fail header.d=exacttarget.com', []),
+        (b'Authentication-Results: sender.example; dkim=pass header.d=exacttarget.com', []),
+        (b'Authentication-Results: biobuddi.es; dkim=pass header.d=exacttarget.com.example', []),
+        (b'Received: from alv174.mta.exacttarget.com', []),
+        (b'DKIM-Signature: v=1; d=s51.y.mc.salesforce.com;', []),
+        (
             (
-                b'Return-Path: <bounce-UPMZ00ZQF2TXGHQQZMSTGQBR8L.510008'
-                b'@bounce.news.thealphapaths.com>'
+                b'Authentication-Results: biobuddi.es; dkim=none\r\n'
+                b'Authentication-Results: biobuddi.es; dkim=pass header.d=exacttarget.com'
             ),
             [],
         ),
-        (b'Received: from alv174.mta.notexacttarget.com', []),
-        (b'From: "The Alpha Paths" <contact@exacttarget.com>', []),
     ),
 )
 def test_match_platforms(header: bytes, platforms: list[Platform]) -> None:
-    assert match_platforms(header + b'\r\n\r\nAct now') == platforms
+    assert match_platforms(header + b'\r\n\r\nAct now', 'imap.biobuddi.es') == platforms
 
 
 def test_compose_report() -> None:
@@ -81,7 +81,7 @@ def test_email_reports(
         'SPAMHAMMER_EMAIL_URLS',
         f'imaps://busybuddy%40biobuddi.es:secret@imap.biobuddi.es, {submission}',
     )
-    email_reports(SPAM)
+    email_reports(AUTHENTICATED_SPAM)
     smtp_class.assert_called_once_with('smtp.biobuddi.es', 587, timeout=30)
     smtp = smtp_class.return_value.__enter__.return_value
     smtp.login.assert_called_once_with(*login_pair)
@@ -95,11 +95,14 @@ def test_email_reports_needs_submission(
 ) -> None:
     monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
     with caplog.at_level(INFO):
-        email_reports(SPAM)
+        email_reports(AUTHENTICATED_SPAM)
     assert 'No submission:// URL; skipped Salesforce Marketing Cloud' in caplog.text
 
 
-def test_email_reports_unknown_platform(caplog: LogCaptureFixture) -> None:
+def test_email_reports_unknown_platform(
+    caplog: LogCaptureFixture, monkeypatch: MonkeyPatch
+) -> None:
+    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
     with caplog.at_level(INFO):
         email_reports(b'Received: from mail.biobuddi.es\r\n\r\nHi')
-    assert 'No known platform sent it' in caplog.text
+    assert 'No verified DKIM signature from a known platform' in caplog.text

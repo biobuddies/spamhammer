@@ -2,7 +2,7 @@ from asyncio import get_running_loop
 from collections import Counter
 from logging import INFO
 from os import getpid
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
@@ -99,3 +99,17 @@ def test_report_sweeps_regardless_of_result(
         call_command('report', 'contact@news.unchartedvalues.com')
     cleanup.assert_awaited_once_with('contact@news.unchartedvalues.com', dry_run=False)
     assert loops[0] is loops[1]
+
+
+def test_report_sweeps_after_smtp_failure(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        report_command, 'report_after_delay', AsyncMock(return_value=(b'email', {}))
+    )
+    monkeypatch.setattr(
+        report_command, 'email_reports', send := Mock(side_effect=OSError('SMTP failed'))
+    )
+    monkeypatch.setattr(sweep, 'sweep', cleanup := AsyncMock(return_value=Counter()))
+    with raises(OSError, match='SMTP failed'):
+        call_command('report', 'contact@news.unchartedvalues.com')
+    send.assert_called_once_with(b'email')
+    cleanup.assert_awaited_once_with('contact@news.unchartedvalues.com', dry_run=False)

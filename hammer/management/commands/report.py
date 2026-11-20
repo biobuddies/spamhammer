@@ -1,6 +1,6 @@
 """Report spam to Spamhaus and its sending platform."""
 
-from asyncio import run
+from asyncio import run, to_thread
 from logging import getLogger
 from os import environ, getpid
 
@@ -41,9 +41,9 @@ class Command(BaseCommand):
         )
         try:
             message, _submission = await report_after_delay(sender, subject, delay_seconds)
+            if message:
+                await to_thread(email_reports, message)
         except Exception:
             print(await sweep_summary(sender, dry_run=False))
             raise
-        if message:
-            email_reports(message)
         print(await sweep_summary(sender, dry_run=False))
