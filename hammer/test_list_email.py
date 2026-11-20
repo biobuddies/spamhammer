@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock
 from aioimaplib import Response
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
 from hammer.management.commands.list_email import list_email
@@ -41,6 +42,15 @@ def test_list_email_defaults_off(caplog: LogCaptureFixture, monkeypatch: MonkeyP
     assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
 
 
+def test_list_email_stops_after_failed_search() -> None:
+    imap = AsyncMock()
+    imap.select.return_value = Response('OK', [])
+    imap.search.return_value = Response('NO', [])
+    with raises(CommandError, match='SEARCH UNSEEN NO'):
+        run(unwrap(list_email)(imap))
+    imap.fetch.assert_not_awaited()
+
+
 @mark.parametrize(
     ('headers', 'marker'),
     (
@@ -58,6 +68,7 @@ def test_list_email_defaults_off(caplog: LogCaptureFixture, monkeypatch: MonkeyP
 )
 def test_list_email_marks_one_click(headers: str, marker: str) -> None:
     imap = AsyncMock()
+    imap.select.return_value = Response('OK', [])
     imap.search.return_value = Response('OK', [b'1 2'])
     imap.fetch.return_value = Response(
         'OK',

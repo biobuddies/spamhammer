@@ -11,7 +11,7 @@ from re import split
 from typing import Any, Concatenate
 from urllib.parse import ParseResult, unquote, urlparse
 
-from aioimaplib import IMAP4_SSL
+from aioimaplib import IMAP4_SSL, Response
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.base import BaseCommand, CommandError
 
@@ -64,6 +64,13 @@ def imap_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runn
     return decorate
 
 
+def require_ok(response: Response, operation: str) -> Response:
+    """Return the response or raise when the caller needs the command to succeed."""
+    if response.result != 'OK':
+        raise CommandError(f'{operation} {response.result}')
+    return response
+
+
 def describe_email(raw: bytes) -> str:
     """Append a tab-separated marker when the headers support one-click unsubscribe."""
     message = message_from_bytes(raw, policy=policy.default)
@@ -81,20 +88,19 @@ async def list_email(imap: IMAP4_SSL) -> list[str]:
 
     The first tab-separated field suits hammer's spam argument.
     """
-    await imap.select('INBOX')
-    numbers = (await imap.search('UNSEEN')).lines[0].decode().split()[-10:]
-    lines = (
-        (
-            await imap.fetch(
-                ','.join(numbers),
-                'BODY.PEEK[HEADER.FIELDS (FROM SUBJECT LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST)]',
-            )
-        ).lines
-        if numbers
-        else []
+    require_ok(await imap.select('INBOX'), 'INBOX SELECT')
+    found = require_ok(await imap.search('UNSEEN'), 'SEARCH UNSEEN')
+    if not (numbers := found.lines[0].decode().split()[-10:]):
+        return []
+    fetched = require_ok(
+        await imap.fetch(
+            ','.join(numbers),
+            'BODY.PEEK[HEADER.FIELDS (FROM SUBJECT LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST)]',
+        ),
+        'FETCH',
     )
     # TODO: cross reference senders against contacts, e.g. CardDAV
-    return [describe_email(bytes(line)) for line in lines if isinstance(line, bytearray)]
+    return [describe_email(bytes(line)) for line in fetched.lines if isinstance(line, bytearray)]
 
 
 class Command(BaseCommand):

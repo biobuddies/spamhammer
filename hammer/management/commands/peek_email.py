@@ -7,23 +7,17 @@ from email.utils import parseaddr
 from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from hammer.management.commands.list_email import imap_session
+from hammer.management.commands.list_email import imap_session, require_ok
 
 
 @imap_session()
 async def fetch_email(imap: IMAP4_SSL, sender: str, subject: str = '') -> bytes:
     """Fetch the latest sender and subject substring match using BODY.PEEK."""
-    selected = await imap.select('INBOX')
-    if selected.result != 'OK':
-        raise CommandError(f'INBOX SELECT {selected.result}')
-    found = await imap.uid_search('FROM', f'"{sender}"')
-    if found.result != 'OK':
-        raise CommandError(f'UID SEARCH {found.result}')
+    require_ok(await imap.select('INBOX'), 'INBOX SELECT')
+    found = require_ok(await imap.uid_search('FROM', f'"{sender}"'), 'UID SEARCH')
     numbers = found.lines[0].decode().split()
     if numbers:
-        fetched = await imap.uid('FETCH', ','.join(numbers), 'BODY.PEEK[]')
-        if fetched.result != 'OK':
-            raise CommandError(f'UID FETCH {fetched.result}')
+        fetched = require_ok(await imap.uid('FETCH', ','.join(numbers), 'BODY.PEEK[]'), 'UID FETCH')
         for line in reversed(fetched.lines):
             if not isinstance(line, bytearray):
                 continue

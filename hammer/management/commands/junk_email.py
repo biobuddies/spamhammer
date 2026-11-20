@@ -8,10 +8,10 @@ from email.utils import parseaddr
 from os import environ
 from re import search
 
-from aioimaplib import IMAP4_SSL, Response
+from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from hammer.management.commands.list_email import imap_session
+from hammer.management.commands.list_email import imap_session, require_ok
 
 
 def cleanup_scope(sender: str) -> str:
@@ -48,12 +48,6 @@ def match_messages(lines: Sequence[bytes | bytearray], scope: str) -> dict[str, 
     return matches
 
 
-def require_ok(response: Response, operation: str) -> None:
-    """Stop after a failed IMAP operation."""
-    if response.result != 'OK':
-        raise CommandError(f'{operation}: {response.result}')
-
-
 @imap_session(off=Counter())
 async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool, folder: str) -> Counter[str]:
     """Check exact From addresses, then add Seen and UID MOVE only the matched messages."""
@@ -61,27 +55,25 @@ async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool, folder: str
     quoted_folder = f'"{folder}"'
     if folder.casefold() == 'inbox':
         raise CommandError('Destination cannot be INBOX')
-    selected = await imap.select('INBOX')
-    require_ok(selected, 'INBOX SELECT')
+    require_ok(await imap.select('INBOX'), 'INBOX SELECT')
     value = scope if '@' in scope else '@' + scope
-    found = await imap.uid_search('FROM', f'"{value}"')
-    require_ok(found, 'UID SEARCH')
+    found = require_ok(await imap.uid_search('FROM', f'"{value}"'), 'UID SEARCH')
     numbers = found.lines[0].decode().split()
     if not numbers:
         return Counter()
-    fetched = await imap.uid('FETCH', ','.join(numbers), '(UID BODY.PEEK[HEADER.FIELDS (FROM)])')
-    require_ok(fetched, 'UID FETCH')
+    fetched = require_ok(
+        await imap.uid('FETCH', ','.join(numbers), '(UID BODY.PEEK[HEADER.FIELDS (FROM)])'),
+        'UID FETCH',
+    )
     matches = match_messages(fetched.lines, scope)
     counts = Counter(matches.values())
     if dry_run or not matches:
         return counts
     if not imap.protocol or 'MOVE' not in imap.protocol.capabilities:
         raise CommandError('Server must support UID MOVE; no flags changed')
-    destination = await imap.status(quoted_folder, '(UIDVALIDITY)')
-    require_ok(destination, f'Destination {folder!r} unavailable; no flags changed')
+    require_ok(await imap.status(quoted_folder, '(UIDVALIDITY)'), f'STATUS {folder!r}')
     sequence = ','.join(matches)
-    marked = await imap.uid('STORE', sequence, '+FLAGS.SILENT', '(\\Seen)')
-    require_ok(marked, 'UID STORE failed; no MOVE attempted')
+    require_ok(await imap.uid('STORE', sequence, '+FLAGS.SILENT', '(\\Seen)'), 'UID STORE')
     moved = await imap.uid('MOVE', sequence, quoted_folder)
     if moved.result != 'OK':
         raise CommandError(
