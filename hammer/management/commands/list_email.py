@@ -23,12 +23,12 @@ type Session[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T
 
 
 class ImapClient(IMAP4_SSL):
-    """Raise on failed login and mailbox commands, leaving STATUS available for probes."""
+    """Raise on failed login and mailbox commands."""
 
     def __getattribute__(self, name: str) -> Any:
         """Check the response from selected inherited commands."""
         method = super().__getattribute__(name)
-        if name not in {'fetch', 'login', 'search', 'select', 'uid', 'uid_search'}:
+        if name not in {'fetch', 'login', 'search', 'select', 'status', 'uid', 'uid_search'}:
             return method
 
         @wraps(method)
@@ -67,10 +67,13 @@ def read_email_url() -> ParseResult | None:
             raise NotImplementedError('exactly one SPAMHAMMER_EMAIL_URLS supported for now')
 
 
-def imap_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runner[P, T]]:
+def imap_session[**P, T](
+    off: T | None = None, *, requires: tuple[str, ...] = ()
+) -> Callable[[Session[P, T]], Runner[P, T]]:
     """Supply a client logged in to SPAMHAMMER_EMAIL_URLS, smoke tested by LOGIN.
 
     URLs, delimited by commas and/or whitespace, starting with 'off' return `off` instead.
+    Check required capabilities immediately after login.
     """
 
     def decorate(function: Session[P, T]) -> Runner[P, T]:
@@ -83,6 +86,9 @@ def imap_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runn
             await imap.login(unquote(parsed.username or ''), unquote(parsed.password or ''))
             logger.info('%s LOGIN OK', parsed.hostname)
             try:
+                capabilities = imap.protocol.capabilities if imap.protocol else ()
+                if missing := set(requires).difference(capabilities):
+                    raise CommandError(f'Missing IMAP capabilities: {", ".join(sorted(missing))}')
                 return await function(imap, *args, **kwargs)
             finally:
                 await imap.logout()

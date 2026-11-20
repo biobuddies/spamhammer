@@ -88,7 +88,9 @@ def test_insert_rule_parses_and_matches_real_spam() -> None:
 @mark.parametrize('status', ('OK', 'NO', 'BAD'))
 def test_folder_exists(status: str) -> None:
     imap = AsyncMock()
-    imap.status.return_value = Response(status, [])
+    imap.status.return_value = Response('OK', [])
+    if status != 'OK':
+        imap.status.side_effect = CommandError(f'STATUS {status}')
     assert run(unwrap(folder_exists)(imap, 'Spam*')) == (status == 'OK')
     imap.status.assert_awaited_once_with('"Spam*"', '(UIDVALIDITY)')
 

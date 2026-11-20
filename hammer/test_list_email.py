@@ -60,6 +60,7 @@ def test_imap_session_raises_on_rejected_login(monkeypatch: MonkeyPatch) -> None
         ('search', ('UNSEEN',), 'SEARCH NO'),
         ('uid_search', ('UNSEEN',), 'UID SEARCH NO'),
         ('fetch', ('1', 'BODY.PEEK[]'), 'FETCH NO'),
+        ('status', ('"Spam"', '(UIDVALIDITY)'), 'STATUS NO'),
         ('uid', ('MOVE', '1', 'Spam'), 'UID MOVE NO'),
     ),
 )
@@ -70,12 +71,6 @@ def test_imap_client_checks_responses(
     imap = object.__new__(ImapClient)
     with raises(CommandError, match=message):
         run(getattr(imap, method)(*arguments))
-
-
-def test_imap_client_returns_status_unchanged(monkeypatch: MonkeyPatch) -> None:
-    response = Response('NO', [])
-    monkeypatch.setattr(IMAP4_SSL, 'status', AsyncMock(return_value=response))
-    assert run(object.__new__(ImapClient).status('"Spam"', '(UIDVALIDITY)')) is response
 
 
 @mark.parametrize(

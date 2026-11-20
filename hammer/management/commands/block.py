@@ -49,7 +49,11 @@ async def update_script(sieve: ManageSieve, header: str, value: str, folder: str
 @imap_session(off=True)
 async def folder_exists(imap: IMAP4_SSL, folder: str) -> bool:
     """Check the exact folder, without treating wildcard characters as a LIST pattern."""
-    return (await imap.status(f'"{folder}"', '(UIDVALIDITY)')).result == 'OK'
+    try:
+        await imap.status(f'"{folder}"', '(UIDVALIDITY)')
+    except CommandError:
+        return False
+    return True
 
 
 @imap_session(off=Counter())

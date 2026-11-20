@@ -10,8 +10,9 @@ from unittest.mock import AsyncMock, patch
 from aioimaplib import Response
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from pytest import mark, raises
+from pytest import MonkeyPatch, mark, raises
 
+from hammer.management.commands import list_email
 from hammer.management.commands.sweep import match_messages, sweep
 
 
@@ -51,27 +52,39 @@ def test_sweep_scope(domain: str, sequence: str, count: int, dry_run: bool) -> N
     counts = run(unwrap(sweep)(imap, f'contact@{domain}', dry_run=dry_run))
     assert counts.total() == count
     assert imap.uid.await_count == (1 if dry_run else 2)
-    if dry_run:
-        imap.status.assert_not_awaited()
-    else:
-        imap.status.assert_awaited_once_with('"Spam"', '(UIDVALIDITY)')
+    imap.status.assert_awaited_once_with('"Spam"', '(UIDVALIDITY)')
+    if not dry_run:
         assert imap.uid.await_args_list[1].args == ('MOVE', sequence, '"Spam"')
 
 
-@mark.parametrize('failure', ('destination', 'capability', 'move'))
-def test_sweep_failure(failure: str) -> None:
+@mark.parametrize(
+    ('failure', 'dry_run'), (('destination', True), ('destination', False), ('move', False))
+)
+def test_sweep_failure(failure: str, dry_run: bool) -> None:
     imap = make_imap()
     if failure == 'destination':
-        imap.status.return_value = Response('NO', [])
-    if failure == 'capability':
-        imap.protocol.capabilities = set()
+        imap.status.side_effect = CommandError('STATUS NO')
     responses = list(imap.uid.side_effect)
     if failure == 'move':
         responses[1] = CommandError('UID MOVE NO')
     imap.uid.side_effect = responses
     with raises(CommandError):
-        run(unwrap(sweep)(imap, 'contact@news.unchartedvalues.com', dry_run=False))
-    assert imap.uid.await_count == (2 if failure == 'move' else 1)
+        run(unwrap(sweep)(imap, 'contact@news.unchartedvalues.com', dry_run=dry_run))
+    assert imap.uid.await_count == (2 if failure == 'move' else 0)
+
+
+@mark.parametrize('dry_run', (True, False))
+def test_sweep_requires_move_after_login(monkeypatch: MonkeyPatch, dry_run: bool) -> None:
+    imap = make_imap()
+    imap.protocol.capabilities = set()
+    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
+    monkeypatch.setattr(list_email, 'ImapClient', lambda *_: imap)
+    with raises(CommandError, match='Missing IMAP capabilities: MOVE'):
+        call_command('sweep', 'contact@news.unchartedvalues.com', dry_run=dry_run)
+    imap.login.assert_awaited_once()
+    imap.status.assert_not_awaited()
+    imap.select.assert_not_awaited()
+    imap.logout.assert_awaited_once()
 
 
 def test_sweep_empty() -> None:

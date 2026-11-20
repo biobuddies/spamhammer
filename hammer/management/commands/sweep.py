@@ -49,14 +49,15 @@ def match_messages(lines: Sequence[bytes | bytearray], scope: str) -> dict[str, 
     return matches
 
 
-@imap_session(off=Counter())
+@imap_session(off=Counter(), requires=('MOVE',))
 async def sweep(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
     """Check exact From addresses, then UID MOVE only the matched messages."""
     scope = cleanup_scope(sender)
+    quoted_folder = f'"{SPAM_FOLDER}"'
+    await imap.status(quoted_folder, '(UIDVALIDITY)')
     await imap.select('INBOX')
     value = scope if '@' in scope else '@' + scope
-    found = await imap.uid_search('FROM', f'"{value}"')
-    numbers = found.lines[0].decode().split()
+    numbers = (await imap.uid_search('FROM', f'"{value}"')).lines[0].decode().split()
     if not numbers:
         return Counter()
     fetched = await imap.uid('FETCH', ','.join(numbers), '(UID BODY.PEEK[HEADER.FIELDS (FROM)])')
@@ -64,15 +65,8 @@ async def sweep(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
     counts = Counter(matches.values())
     if dry_run or not matches:
         return counts
-    if not imap.protocol or 'MOVE' not in imap.protocol.capabilities:
-        raise CommandError('Server must support UID MOVE')
-    quoted_folder = f'"{SPAM_FOLDER}"'
-    destination = await imap.status(quoted_folder, '(UIDVALIDITY)')
-    if destination.result != 'OK':
-        raise CommandError(f'STATUS {SPAM_FOLDER!r} {destination.result}')
-    sequence = ','.join(matches)
     try:
-        await imap.uid('MOVE', sequence, quoted_folder)
+        await imap.uid('MOVE', ','.join(matches), quoted_folder)
     except CommandError as error:
         raise CommandError(f'{error}; some matching messages may already have moved') from error
     return counts
