@@ -72,6 +72,12 @@ def test_imap_client_checks_responses(
         run(getattr(imap, method)(*arguments))
 
 
+def test_imap_client_returns_status_unchanged(monkeypatch: MonkeyPatch) -> None:
+    response = Response('NO', [])
+    monkeypatch.setattr(IMAP4_SSL, 'status', AsyncMock(return_value=response))
+    assert run(object.__new__(ImapClient).status('"Spam"', '(UIDVALIDITY)')) is response
+
+
 @mark.parametrize(
     ('headers', 'marker'),
     (

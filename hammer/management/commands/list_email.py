@@ -8,7 +8,7 @@ from functools import wraps
 from logging import getLogger
 from os import environ
 from re import split
-from typing import Any, Concatenate, override
+from typing import Any, Concatenate
 from urllib.parse import ParseResult, unquote, urlparse
 
 from aioimaplib import IMAP4_SSL, Response
@@ -25,38 +25,31 @@ type Session[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T
 class ImapClient(IMAP4_SSL):
     """Raise on failed login and mailbox commands, leaving STATUS available for probes."""
 
-    @staticmethod
-    def _checked(response: Response, operation: str) -> Response:
-        if response.result != 'OK':
+    def __getattribute__(self, name: str) -> Any:
+        """Check the response from selected inherited commands."""
+        method = super().__getattribute__(name)
+        if name not in {'fetch', 'login', 'search', 'select', 'uid', 'uid_search'}:
+            return method
+
+        @wraps(method)
+        async def command(*arguments: str, **options: str | None) -> Response:
+            response = await method(*arguments, **options)
+            if response.result == 'OK':
+                return response
+            match name:
+                case 'login':
+                    raise ConnectionError(f'{self.host} LOGIN {response.result}')
+                case 'select':
+                    mailbox = arguments[0] if arguments else options.get('mailbox', 'INBOX')
+                    operation = f'{mailbox} SELECT'
+                case 'uid':
+                    verb = arguments[0] if arguments else options['command']
+                    operation = f'UID {verb}'
+                case _:
+                    operation = name.replace('_', ' ').upper()
             raise CommandError(f'{operation} {response.result}')
-        return response
 
-    @override
-    async def login(self, user: str, password: str) -> Response:
-        response = await super().login(user, password)
-        if response.result != 'OK':
-            raise ConnectionError(f'{self.host} LOGIN {response.result}')
-        return response
-
-    @override
-    async def select(self, mailbox: str = 'INBOX') -> Response:
-        return self._checked(await super().select(mailbox), f'{mailbox} SELECT')
-
-    @override
-    async def search(self, *criteria: str, charset: str | None = 'utf-8') -> Response:
-        return self._checked(await super().search(*criteria, charset=charset), 'SEARCH')
-
-    @override
-    async def uid_search(self, *criteria: str, charset: str | None = 'utf-8') -> Response:
-        return self._checked(await super().uid_search(*criteria, charset=charset), 'UID SEARCH')
-
-    @override
-    async def fetch(self, message_set: str, message_parts: str) -> Response:
-        return self._checked(await super().fetch(message_set, message_parts), 'FETCH')
-
-    @override
-    async def uid(self, command: str, *criteria: str) -> Response:
-        return self._checked(await super().uid(command, *criteria), f'UID {command}')
+        return command
 
 
 def read_email_url() -> ParseResult | None:
