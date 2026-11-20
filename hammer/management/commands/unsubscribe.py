@@ -4,10 +4,10 @@ from asyncio import run
 from urllib.parse import urlsplit
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, DummyCookieJar
-from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from hammer.management.commands.peek_email import fetch_email
+from hammer.management.commands.sweep import sweep_after
 from hammer.one_click import find_unsubscribe_url
 
 
@@ -48,11 +48,11 @@ class Command(BaseCommand):
 
     def handle(self, *_args: object, email: str, dry_run: bool, **_options: object) -> None:
         """Request one-click unsubscribe for the latest matching email."""
+        run(self.handle_async(email, dry_run=dry_run))
+
+    async def handle_async(self, email: str, *, dry_run: bool) -> None:
+        """Unsubscribe and sweep matching mail in one event loop."""
         sender, _, subject = email.partition(' ')
-        try:
-            if result := run(unsubscribe(sender, subject, dry_run)):
+        async with sweep_after(sender, dry_run=dry_run, write=self.stdout.write):
+            if result := await unsubscribe(sender, subject, dry_run):
                 self.stdout.write(result)
-        except Exception:
-            call_command('sweep', sender, dry_run=dry_run, stdout=self.stdout)
-            raise
-        call_command('sweep', sender, dry_run=dry_run, stdout=self.stdout)

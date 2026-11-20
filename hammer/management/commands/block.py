@@ -89,13 +89,17 @@ class Command(BaseCommand):
         **_options: object,
     ) -> None:
         """Count matches, or insert the rule."""
+        run(self.handle_async(header, value, backtest=backtest, folder=folder))
+
+    async def handle_async(self, header: str, value: str, *, backtest: bool, folder: str) -> None:
+        """Check the destination and update the Sieve script in one event loop."""
         if backtest:
-            senders = run(count_matches(header, value)) or Counter()
+            senders = await count_matches(header, value) or Counter()
             print(
                 f'{senders.total()} INBOX messages',
                 *(f'{count} {sender}' for sender, count in senders.most_common()),
                 sep='\n',
             )
             return
-        run(check_folder(folder))
-        run(update_script(header, value, folder))
+        await check_folder(folder)
+        await update_script(header, value, folder)

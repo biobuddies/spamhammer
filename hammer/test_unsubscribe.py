@@ -127,7 +127,9 @@ def test_unsubscribe_sweeps_regardless_of_result(accepted: bool) -> None:
     )
     with (
         patch('hammer.management.commands.unsubscribe.unsubscribe', new=request),
-        patch('hammer.management.commands.unsubscribe.call_command') as cleanup,
+        patch(
+            'hammer.management.commands.sweep.sweep', new=AsyncMock(return_value=None)
+        ) as cleanup,
     ):
         if accepted:
             call_command(
@@ -136,6 +138,4 @@ def test_unsubscribe_sweeps_regardless_of_result(accepted: bool) -> None:
         else:
             with raises(CommandError, match='Failed'):
                 call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels')
-    cleanup.assert_called_once()
-    assert cleanup.call_args.args == ('sweep', 'contact@news.thealphapaths.com')
-    assert cleanup.call_args.kwargs['dry_run'] is False
+    cleanup.assert_awaited_once_with('contact@news.thealphapaths.com', dry_run=False)

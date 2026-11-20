@@ -1,8 +1,9 @@
-from asyncio import CancelledError, run
+from asyncio import CancelledError, get_running_loop, run
+from collections import Counter
 from inspect import unwrap
 from logging import DEBUG, INFO
 from os import getpid
-from unittest.mock import ANY, AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from aiohttp import ClientResponseError, ClientSession, web
 from aiohttp.test_utils import TestServer
@@ -12,7 +13,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
-from hammer.management.commands import hammer
+from hammer.management.commands import hammer, sweep
 from hammer.management.commands.hammer import Json, fetch_spam, json_session, report
 
 
@@ -237,14 +238,24 @@ def test_fetch_spam_rejects_imap_failures(operation: str) -> None:
 def test_hammer_sweeps_regardless_of_report(
     monkeypatch: MonkeyPatch, submission: Json | None
 ) -> None:
-    report = AsyncMock(return_value=(b'email', submission))
-    if submission is None:
-        report.side_effect = CommandError('Report failed')
-    monkeypatch.setattr(hammer, 'report_after_delay', report)
-    monkeypatch.setattr(hammer, 'call_command', junk := MagicMock())
+    loops = []
+
+    async def submit(*_args: object) -> tuple[bytes, Json]:
+        loops.append(get_running_loop())
+        if submission is None:
+            raise CommandError('Report failed')
+        return b'email', submission
+
+    async def move(*_args: object, **_kwargs: object) -> Counter[str]:
+        loops.append(get_running_loop())
+        return Counter()
+
+    monkeypatch.setattr(hammer, 'report_after_delay', submit)
+    monkeypatch.setattr(sweep, 'sweep', cleanup := AsyncMock(side_effect=move))
     if submission is None:
         with raises(CommandError, match='Report failed'):
             call_command('hammer', 'contact@news.unchartedvalues.com')
     else:
         call_command('hammer', 'contact@news.unchartedvalues.com')
-    junk.assert_called_once_with('sweep', 'contact@news.unchartedvalues.com', stdout=ANY)
+    cleanup.assert_awaited_once_with('contact@news.unchartedvalues.com', dry_run=False)
+    assert loops[0] is loops[1]

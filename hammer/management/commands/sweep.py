@@ -2,7 +2,8 @@
 
 from asyncio import run
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
+from contextlib import asynccontextmanager
 from email import message_from_bytes, policy
 from email.utils import parseaddr
 from re import search
@@ -72,6 +73,33 @@ async def sweep(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
     return counts
 
 
+async def sweep_summary(sender: str, *, dry_run: bool) -> str:
+    """Sweep or preview matching mail and format the result for command output."""
+    scope = cleanup_scope(sender)
+    counts = await sweep(sender, dry_run=dry_run) or Counter()
+    addresses = ', '.join(
+        f'{address.rpartition("@")[0]}@' for address, _count in counts.most_common()
+    )
+    suffix = f': {addresses}' if '@' not in scope and counts else ''
+    return (
+        f'{"Would move" if dry_run else "Moved"} {counts.total()} messages '
+        f'from {scope} to {SPAM_FOLDER}{suffix}'
+    )
+
+
+@asynccontextmanager
+async def sweep_after(
+    sender: str, *, dry_run: bool, write: Callable[[str], None]
+) -> AsyncIterator[None]:
+    """Sweep after the request finishes or fails, and leave cancellations alone."""
+    try:
+        yield
+    except Exception:
+        write(await sweep_summary(sender, dry_run=dry_run))
+        raise
+    write(await sweep_summary(sender, dry_run=dry_run))
+
+
 class Command(BaseCommand):
     help = __doc__
 
@@ -82,13 +110,4 @@ class Command(BaseCommand):
 
     def handle(self, *_args: object, sender: str, dry_run: bool, **_options: object) -> None:
         """Print the affected message count and sender breakdown."""
-        scope = cleanup_scope(sender)
-        counts = run(sweep(sender, dry_run=dry_run)) or Counter()
-        addresses = ', '.join(
-            f'{address.rpartition("@")[0]}@' for address, _count in counts.most_common()
-        )
-        suffix = f': {addresses}' if '@' not in scope and counts else ''
-        self.stdout.write(
-            f'{"Would move" if dry_run else "Moved"} {counts.total()} messages '
-            f'from {scope} to {SPAM_FOLDER}{suffix}'
-        )
+        self.stdout.write(run(sweep_summary(sender, dry_run=dry_run)))

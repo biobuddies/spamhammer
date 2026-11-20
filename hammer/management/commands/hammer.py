@@ -1,5 +1,7 @@
 """Report spam to Spamhaus."""
 
+# TODO rename to report.py
+
 from asyncio import get_running_loop, run, sleep
 from collections.abc import Callable, Coroutine
 from email import message_from_bytes, policy
@@ -20,10 +22,10 @@ from aiohttp import (
 )
 from aioimaplib import IMAP4_SSL
 from django.core.exceptions import ImproperlyConfigured
-from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from hammer.management.commands.list_email import imap_session
+from hammer.management.commands.sweep import sweep_after
 
 logger = getLogger(__name__)
 type Json = dict[str, Any]
@@ -159,6 +161,10 @@ class Command(BaseCommand):
         self, *_args: object, delay_seconds: int, reason: str | None, spam: str, **_options: object
     ) -> None:
         """Report matching inbox messages to Spamhaus."""
+        run(self.handle_async(spam, delay_seconds=delay_seconds, reason=reason))
+
+    async def handle_async(self, spam: str, *, delay_seconds: int, reason: str | None) -> None:
+        """Report spam and sweep matching mail in one event loop."""
         if delay_seconds < 0:
             raise CommandError('--delay-seconds must be nonnegative')
         sender, _, subject = spam.partition(' ')
@@ -169,13 +175,7 @@ class Command(BaseCommand):
             if (run_id := environ.get('GITHUB_RUN_ID'))
             else f'kill {getpid()}',
         )
-        try:
-            run(
-                report_after_delay(
-                    sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
-                )
+        async with sweep_after(sender, dry_run=False, write=self.stdout.write):
+            await report_after_delay(
+                sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
             )
-        except Exception:
-            call_command('sweep', sender, stdout=self.stdout)
-            raise
-        call_command('sweep', sender, stdout=self.stdout)
