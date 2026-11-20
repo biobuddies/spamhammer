@@ -119,7 +119,7 @@ def test_unsubscribe_dry_run() -> None:
 
 
 @mark.parametrize('accepted', (True, False))
-def test_unsubscribe_cleanup_only_after_success(accepted: bool) -> None:
+def test_unsubscribe_sweeps_regardless_of_result(accepted: bool) -> None:
     request = (
         AsyncMock(return_value='Accepted')
         if accepted
@@ -136,7 +136,6 @@ def test_unsubscribe_cleanup_only_after_success(accepted: bool) -> None:
         else:
             with raises(CommandError, match='Failed'):
                 call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels')
-    assert cleanup.call_count == int(accepted)
-    if accepted:
-        assert cleanup.call_args.args == ('junk_email', 'contact@news.thealphapaths.com')
-        assert cleanup.call_args.kwargs['dry_run'] is False
+    cleanup.assert_called_once()
+    assert cleanup.call_args.args == ('junk_email', 'contact@news.thealphapaths.com')
+    assert cleanup.call_args.kwargs['dry_run'] is False

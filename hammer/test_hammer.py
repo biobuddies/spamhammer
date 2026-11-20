@@ -219,7 +219,7 @@ def test_report_propagates_http_failures(
 def test_report_rejects_negative_delay(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(hammer, 'fetch_spam', fetch := AsyncMock())
     with raises(CommandError, match='nonnegative'):
-        run(hammer.report_after_delay('contact@news.unchartedvalues.com', '', 'Spam', -1))
+        call_command('hammer', 'contact@news.unchartedvalues.com', '--delay-seconds=-1')
     fetch.assert_not_awaited()
 
 
@@ -233,16 +233,18 @@ def test_fetch_spam_rejects_imap_failures(operation: str) -> None:
         run(unwrap(fetch_spam)(imap, 'contact@news.unchartedvalues.com', ''))
 
 
-@mark.parametrize('submission', ({'id': 'abc'}, {}))
-def test_hammer_junks_only_after_accepted_report(
-    monkeypatch: MonkeyPatch, submission: Json
+@mark.parametrize('submission', ({'id': 'abc'}, {}, None))
+def test_hammer_sweeps_regardless_of_report(
+    monkeypatch: MonkeyPatch, submission: Json | None
 ) -> None:
-    monkeypatch.setattr(
-        hammer, 'report_after_delay', AsyncMock(return_value=(b'email', submission))
-    )
+    report = AsyncMock(return_value=(b'email', submission))
+    if submission is None:
+        report.side_effect = CommandError('Report failed')
+    monkeypatch.setattr(hammer, 'report_after_delay', report)
     monkeypatch.setattr(hammer, 'call_command', junk := MagicMock())
-    call_command('hammer', 'contact@news.unchartedvalues.com')
-    if submission:
-        junk.assert_called_once_with('junk_email', 'contact@news.unchartedvalues.com', stdout=ANY)
+    if submission is None:
+        with raises(CommandError, match='Report failed'):
+            call_command('hammer', 'contact@news.unchartedvalues.com')
     else:
-        junk.assert_not_called()
+        call_command('hammer', 'contact@news.unchartedvalues.com')
+    junk.assert_called_once_with('junk_email', 'contact@news.unchartedvalues.com', stdout=ANY)

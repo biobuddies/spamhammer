@@ -49,6 +49,10 @@ class Command(BaseCommand):
     def handle(self, *_args: object, email: str, dry_run: bool, **_options: object) -> None:
         """Request one-click unsubscribe for the latest matching email."""
         sender, _, subject = email.partition(' ')
-        if result := run(unsubscribe(sender, subject, dry_run)):
-            self.stdout.write(result)
+        try:
+            if result := run(unsubscribe(sender, subject, dry_run)):
+                self.stdout.write(result)
+        except Exception:
             call_command('junk_email', sender, dry_run=dry_run, stdout=self.stdout)
+            raise
+        call_command('junk_email', sender, dry_run=dry_run, stdout=self.stdout)

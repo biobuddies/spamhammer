@@ -137,8 +137,6 @@ async def report_after_delay(
     sender: str, subject: str, reason: str, delay_seconds: int
 ) -> tuple[bytes | None, Json]:
     """Wait asynchronously before reporting a matching message; return it and the submission."""
-    if delay_seconds < 0:
-        raise CommandError('--delay-seconds must be nonnegative')
     message = await fetch_spam(sender, subject)
     if message:
         logger.info('Reporting in %d seconds', delay_seconds)
@@ -161,6 +159,8 @@ class Command(BaseCommand):
         self, *_args: object, delay_seconds: int, reason: str | None, spam: str, **_options: object
     ) -> None:
         """Report matching inbox messages to Spamhaus."""
+        if delay_seconds < 0:
+            raise CommandError('--delay-seconds must be nonnegative')
         sender, _, subject = spam.partition(' ')
         logger.info('Hammering %s %r', sender, subject)
         logger.info(
@@ -169,10 +169,13 @@ class Command(BaseCommand):
             if (run_id := environ.get('GITHUB_RUN_ID'))
             else f'kill {getpid()}',
         )
-        _message, submission = run(
-            report_after_delay(
-                sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
+        try:
+            run(
+                report_after_delay(
+                    sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
+                )
             )
-        )
-        if submission:
+        except Exception:
             call_command('junk_email', sender, stdout=self.stdout)
+            raise
+        call_command('junk_email', sender, stdout=self.stdout)
