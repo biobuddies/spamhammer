@@ -13,8 +13,8 @@ from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 from sievelib.parser import Parser
 
-from hammer.management.commands import block
-from hammer.management.commands.block import check_folder, insert_rule
+from hammer.management.commands import filter as filter_command
+from hammer.management.commands.filter import check_folder, insert_rule
 
 RULE = 'if header :contains "Received" "mta.exacttarget.com" { fileinto "Junk"; stop; }\n'
 
@@ -34,30 +34,30 @@ def test_insert_rule(script: str, updated: str) -> None:
     assert insert_rule(script, 'Received', 'mta.exacttarget.com', 'Junk') == updated
 
 
-def test_block_off(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+def test_filter_off(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv('SPAMHAMMER_EMAIL_URLS', raising=False)
     with caplog.at_level(INFO):
-        call_command('block', 'Received', 'mta.exacttarget.com')
+        call_command('filter', 'Received', 'mta.exacttarget.com')
     assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
 
 
-def test_block_backtest_off(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
+def test_filter_backtest_off(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv('SPAMHAMMER_EMAIL_URLS', raising=False)
     with caplog.at_level(INFO):
-        call_command('block', 'Received', 'mta.exacttarget.com', '--backtest')
+        call_command('filter', 'Received', 'mta.exacttarget.com', '--backtest')
     assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
 
 
 @mark.parametrize('operation', ('CHECKSCRIPT', 'PUTSCRIPT', 'SETACTIVE'))
-def test_block_surfaces_failed_writes(
+def test_filter_surfaces_failed_writes(
     monkeypatch: MonkeyPatch, operation: str, sieve_server: Callable[..., Callable[[], bytes]]
 ) -> None:
     responses = {'CHECKSCRIPT': b'OK\r\n', 'PUTSCRIPT': b'OK\r\n', 'SETACTIVE': b'OK\r\n'}
     responses[operation] = b'NO "Refused"\r\n'
     sent = sieve_server(b'OK\r\n', *responses.values(), b'OK\r\n')
-    monkeypatch.setattr(block, 'check_folder', AsyncMock())
+    monkeypatch.setattr(filter_command, 'check_folder', AsyncMock())
     with raises(ConnectionError, match=f'{operation} NO Refused'):
-        call_command('block', 'From', 'unchartedvalues.com')
+        call_command('filter', 'From', 'unchartedvalues.com')
     script = (
         'require "fileinto";\n'
         'if header :contains "From" "unchartedvalues.com" { fileinto "Spam"; stop; }\n'
@@ -101,15 +101,17 @@ def test_check_folder_uses_exact_mailbox() -> None:
     imap.status.assert_awaited_once_with('"Spam*"', '(UIDVALIDITY)')
 
 
-def test_block_requires_folder(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setattr(block, 'check_folder', AsyncMock(side_effect=CommandError('STATUS NO')))
-    monkeypatch.setattr(block, 'update_script', update := AsyncMock())
+def test_filter_requires_folder(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        filter_command, 'check_folder', AsyncMock(side_effect=CommandError('STATUS NO'))
+    )
+    monkeypatch.setattr(filter_command, 'update_script', update := AsyncMock())
     with raises(CommandError, match='STATUS NO'):
-        call_command('block', 'From', 'unchartedvalues.com', '--folder=Junk')
+        call_command('filter', 'From', 'unchartedvalues.com', '--folder=Junk')
     update.assert_not_called()
 
 
-def test_block_leaves_crlf_script_with_rule_alone(
+def test_filter_leaves_crlf_script_with_rule_alone(
     monkeypatch: MonkeyPatch, sieve_server: Callable[..., Callable[[], bytes]]
 ) -> None:
     script = b'require "fileinto";\r\n' + RULE.replace('Junk', 'Spam').encode().replace(
@@ -118,6 +120,6 @@ def test_block_leaves_crlf_script_with_rule_alone(
     sent = sieve_server(
         b'"USER" ACTIVE\r\nOK\r\n', b'{%d}\r\n%s\r\nOK\r\n' % (len(script), script), b'OK\r\n'
     )
-    monkeypatch.setattr(block, 'check_folder', AsyncMock())
-    call_command('block', 'Received', 'mta.exacttarget.com')
+    monkeypatch.setattr(filter_command, 'check_folder', AsyncMock())
+    call_command('filter', 'Received', 'mta.exacttarget.com')
     assert sent() == b'LISTSCRIPTS\r\nGETSCRIPT "USER"\r\nLOGOUT\r\n'
