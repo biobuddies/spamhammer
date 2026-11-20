@@ -247,4 +247,4 @@ def test_hammer_sweeps_regardless_of_report(
             call_command('hammer', 'contact@news.unchartedvalues.com')
     else:
         call_command('hammer', 'contact@news.unchartedvalues.com')
-    junk.assert_called_once_with('junk_email', 'contact@news.unchartedvalues.com', stdout=ANY)
+    junk.assert_called_once_with('sweep', 'contact@news.unchartedvalues.com', stdout=ANY)

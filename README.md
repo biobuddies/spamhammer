@@ -10,14 +10,14 @@ flowchart TD
 
 # Spamhammer
 
-`junk_email` sweeps matching inbox messages to junk regardless of the unsubscribe or Spamhaus
+`sweep` sweeps matching inbox messages to junk regardless of the unsubscribe or Spamhaus
 result. The subject substring selects the message used to unsubscribe; it does not limit cleanup.
 Dry runs inspect headers without moving mail. The report workflow places a Sieve `fileinto` filter
 before the sweep. Installing that filter is still a separate `block` operation.
 
 ```bash
-python -m manage junk_email MileagePlus_Partner@enews.united.com --dry-run
-python -m manage junk_email MileagePlus_Partner@enews.united.com
+python -m manage sweep MileagePlus_Partner@enews.united.com --dry-run
+python -m manage sweep MileagePlus_Partner@enews.united.com
 ```
 
 The `Spam` folder must already exist, and the server must support `UID MOVE`. If a move fails

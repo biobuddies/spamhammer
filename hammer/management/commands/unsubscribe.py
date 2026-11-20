@@ -53,6 +53,6 @@ class Command(BaseCommand):
             if result := run(unsubscribe(sender, subject, dry_run)):
                 self.stdout.write(result)
         except Exception:
-            call_command('junk_email', sender, dry_run=dry_run, stdout=self.stdout)
+            call_command('sweep', sender, dry_run=dry_run, stdout=self.stdout)
             raise
-        call_command('junk_email', sender, dry_run=dry_run, stdout=self.stdout)
+        call_command('sweep', sender, dry_run=dry_run, stdout=self.stdout)

@@ -176,6 +176,6 @@ class Command(BaseCommand):
                 )
             )
         except Exception:
-            call_command('junk_email', sender, stdout=self.stdout)
+            call_command('sweep', sender, stdout=self.stdout)
             raise
-        call_command('junk_email', sender, stdout=self.stdout)
+        call_command('sweep', sender, stdout=self.stdout)

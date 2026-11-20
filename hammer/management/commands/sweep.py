@@ -50,7 +50,7 @@ def match_messages(lines: Sequence[bytes | bytearray], scope: str) -> dict[str, 
 
 
 @imap_session(off=Counter())
-async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
+async def sweep(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
     """Check exact From addresses, then UID MOVE only the matched messages."""
     scope = cleanup_scope(sender)
     await imap.select('INBOX')
@@ -89,7 +89,7 @@ class Command(BaseCommand):
     def handle(self, *_args: object, sender: str, dry_run: bool, **_options: object) -> None:
         """Print the affected message count and sender breakdown."""
         scope = cleanup_scope(sender)
-        counts = run(junk_email(sender, dry_run=dry_run)) or Counter()
+        counts = run(sweep(sender, dry_run=dry_run)) or Counter()
         addresses = ', '.join(
             f'{address.rpartition("@")[0]}@' for address, _count in counts.most_common()
         )
