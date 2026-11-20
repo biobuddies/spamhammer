@@ -7,23 +7,16 @@ from email.utils import parseaddr
 from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from hammer.management.commands.list_email import imap_session
+from hammer.hammer import imap_session
 
 
 @imap_session()
 async def fetch_email(imap: IMAP4_SSL, sender: str, subject: str = '') -> bytes:
     """Fetch the latest sender and subject substring match using BODY.PEEK."""
-    selected = await imap.select('INBOX')
-    if selected.result != 'OK':
-        raise CommandError(f'INBOX SELECT {selected.result}')
-    found = await imap.uid_search('FROM', f'"{sender}"')
-    if found.result != 'OK':
-        raise CommandError(f'UID SEARCH {found.result}')
-    numbers = found.lines[0].decode().split()
+    await imap.select('INBOX')
+    numbers = (await imap.uid_search('FROM', f'"{sender}"')).lines[0].decode().split()
     if numbers:
         fetched = await imap.uid('FETCH', ','.join(numbers), 'BODY.PEEK[]')
-        if fetched.result != 'OK':
-            raise CommandError(f'UID FETCH {fetched.result}')
         for line in reversed(fetched.lines):
             if not isinstance(line, bytearray):
                 continue
@@ -48,4 +41,4 @@ class Command(BaseCommand):
         """Print the complete RFC 5322 message."""
         sender, _, subject = email.partition(' ')
         if message := run(fetch_email(sender, subject)):
-            self.stdout.write(message.decode('utf-8', errors='replace'), ending='')
+            print(message.decode('utf-8', errors='replace'), end='')

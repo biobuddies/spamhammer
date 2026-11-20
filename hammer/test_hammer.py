@@ -1,65 +1,48 @@
 from asyncio import CancelledError, run
 from inspect import unwrap
 from logging import DEBUG, INFO
-from os import getpid
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from aiohttp import ClientResponseError, ClientSession, web
 from aiohttp.test_utils import TestServer
-from aioimaplib import Response
-from django.core.exceptions import ImproperlyConfigured
-from django.core.management import call_command
+from aioimaplib import IMAP4_SSL, Response
 from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
-from hammer.management.commands import hammer
-from hammer.management.commands.hammer import Json, fetch_spam, json_session, report
+from hammer import hammer
+from hammer.hammer import ImapClient, Json, fetch_spam, json_session, report
 
 
-@mark.parametrize('key', ('off', 'off until I find it'))
-def test_hammer_off(caplog: LogCaptureFixture, key: str, monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.delenv('SPAMHAMMER_EMAIL_URLS', raising=False)
-    monkeypatch.setenv('SPAMHAUS_API_KEY', key)
-    with caplog.at_level(INFO):
-        call_command('hammer', 'spam@example.com')
-    assert 'SPAMHAMMER_EMAIL_URLS off' in caplog.text
-    assert 'SPAMHAUS_API_KEY off' in caplog.text
+def test_imap_session_raises_on_rejected_login(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
+    monkeypatch.setattr(IMAP4_SSL, 'create_client', Mock())
+    monkeypatch.setattr(IMAP4_SSL, 'wait_hello_from_server', AsyncMock())
+    monkeypatch.setattr(IMAP4_SSL, 'login', AsyncMock(return_value=Response('NO', [])))
+    monkeypatch.setattr(IMAP4_SSL, 'select', select := AsyncMock())
+    with raises(CommandError, match=r'^imap\.biobuddi\.es LOGIN NO$'):
+        run(fetch_spam('contact@example.com', ''))
+    select.assert_not_awaited()
 
 
 @mark.parametrize(
-    ('spam', 'logged'),
+    ('method', 'arguments', 'message'),
     (
-        ('spam@example.com', "spam@example.com ''"),
-        ('spam@example.com Act now', "spam@example.com 'Act now'"),
-        ('spam@example.com  Re: Act now ', "spam@example.com ' Re: Act now '"),
+        ('select', ('INBOX',), 'INBOX SELECT NO'),
+        ('search', ('UNSEEN',), 'SEARCH NO'),
+        ('uid_search', ('UNSEEN',), 'UID SEARCH NO'),
+        ('fetch', ('1', 'BODY.PEEK[]'), 'FETCH NO'),
+        ('status', ('"Spam"', '(UIDVALIDITY)'), 'STATUS NO'),
+        ('uid', ('MOVE', '1', 'Spam'), 'UID MOVE NO'),
     ),
 )
-def test_hammer_spam(caplog: LogCaptureFixture, logged: str, spam: str) -> None:
-    with caplog.at_level(INFO):
-        call_command('hammer', spam)
-    assert f'Hammering {logged}' in caplog.text
-
-
-def test_hammer_rejects_empty_key(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.delenv('SPAMHAMMER_EMAIL_URLS', raising=False)
-    monkeypatch.setenv('SPAMHAUS_API_KEY', '')
-    with raises(ImproperlyConfigured):
-        call_command('hammer', 'spam@example.com')
-
-
-def test_hammer_logs_cancel_command(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setenv('GITHUB_REPOSITORY', 'biobuddies/spamhammer')
-    monkeypatch.setenv('GITHUB_RUN_ID', '42')
-    with caplog.at_level(INFO):
-        call_command('hammer', 'spam@example.com')
-    assert 'Cancel: gh run cancel 42 --repo biobuddies/spamhammer' in caplog.text
-
-
-def test_hammer_logs_kill_command(caplog: LogCaptureFixture, monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.delenv('GITHUB_RUN_ID', raising=False)
-    with caplog.at_level(INFO):
-        call_command('hammer', 'spam@example.com')
-    assert f'Cancel: kill {getpid()}' in caplog.text
+def test_imap_client_checks_responses(
+    monkeypatch: MonkeyPatch, method: str, arguments: tuple[str, ...], message: str
+) -> None:
+    monkeypatch.setattr(IMAP4_SSL, method, AsyncMock(return_value=Response('NO', [])))
+    imap = object.__new__(ImapClient)
+    imap.host = 'imap.biobuddi.es'
+    with raises(CommandError, match=rf'^imap\.biobuddi\.es {message}$'):
+        run(getattr(imap, method)(*arguments))
 
 
 def test_json_session_logs_each_request_once(
@@ -109,15 +92,18 @@ def test_report_submits_raw_message(caplog: LogCaptureFixture, monkeypatch: Monk
         async with TestServer(application) as server:
             await json_session('SPAMHAUS_API_KEY', str(server.make_url('/')), 'submissions/list')(
                 unwrap(report)
-            )('Unsolicited email from spam@example.com', b'From: spam@example.com\r\n\r\nAct now')
+            )(
+                'contact@news.unchartedvalues.com',
+                b'From: contact@news.unchartedvalues.com\r\n\r\nAct now',
+            )
 
     monkeypatch.setenv('SPAMHAUS_API_KEY', 'key')
     with caplog.at_level(INFO):
         run(submit())
     assert submissions == [
         {
-            'reason': 'Unsolicited email from spam@example.com',
-            'source': {'object': 'From: spam@example.com\r\n\r\nAct now'},
+            'reason': 'Unsolicited email from contact@news.unchartedvalues.com',
+            'source': {'object': 'From: contact@news.unchartedvalues.com\r\n\r\nAct now'},
             'threat_type': 'spam',
         }
     ]
@@ -126,19 +112,19 @@ def test_report_submits_raw_message(caplog: LogCaptureFixture, monkeypatch: Monk
 
 @mark.parametrize('include_match', (True, False))
 def test_fetch_spam_excludes_similar_senders(include_match: bool) -> None:
-    expected = bytearray(b'From: Sender <sender@example.com>\r\n\r\nBody')
-    other = bytearray(b'From: notsender@example.com\r\n\r\nOther')
+    expected = bytearray(b'From: <contact@news.unchartedvalues.com>\r\n\r\nBody')
+    other = bytearray(b'From: contact@news.meadowbrookupdates.com\r\n\r\nOther')
     imap = AsyncMock()
     imap.select.return_value = Response('OK', [])
     imap.uid_search.return_value = Response('OK', [b'1 2'])
     imap.uid.return_value = Response('OK', [expected, other] if include_match else [other])
-    assert run(unwrap(fetch_spam)(imap, 'sender@example.com', '')) == (
+    assert run(unwrap(fetch_spam)(imap, 'contact@news.unchartedvalues.com', '')) == (
         expected if include_match else None
     )
     imap.uid.assert_awaited_once_with('FETCH', '1,2', 'BODY.PEEK[]')
 
 
-@mark.parametrize('message', (None, b'From: sender@example.com\r\n\r\nBody'))
+@mark.parametrize('message', (None, b'From: contact@news.unchartedvalues.com\r\n\r\nBody'))
 def test_report_waits_only_for_matches(message: bytes | None, monkeypatch: MonkeyPatch) -> None:
     events = []
     monkeypatch.setattr(hammer, 'fetch_spam', fetch := AsyncMock(return_value=message))
@@ -148,9 +134,12 @@ def test_report_waits_only_for_matches(message: bytes | None, monkeypatch: Monke
     monkeypatch.setattr(
         hammer, 'report', report := AsyncMock(side_effect=lambda *_args: events.append('report'))
     )
-    assert run(hammer.report_after_delay('sender@example.com', 'Offer', 'Spam', 7)) == message
-    fetch.assert_awaited_once_with('sender@example.com', 'Offer')
-    report.assert_awaited_once_with('Spam', message)
+    assert run(hammer.report_after_delay('contact@news.unchartedvalues.com', 'Solar', 7)) == (
+        message,
+        None,
+    )
+    fetch.assert_awaited_once_with('contact@news.unchartedvalues.com', 'Solar')
+    report.assert_awaited_once_with('contact@news.unchartedvalues.com', message)
     assert events == (['wait', 'report'] if message else ['report'])
     if message:
         wait.assert_awaited_once_with(7)
@@ -163,7 +152,7 @@ def test_cancelled_delay_does_not_report(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(hammer, 'sleep', AsyncMock(side_effect=CancelledError))
     monkeypatch.setattr(hammer, 'report', report := AsyncMock())
     with raises(CancelledError):
-        run(hammer.report_after_delay('sender@example.com', '', 'Spam', 7))
+        run(hammer.report_after_delay('contact@news.unchartedvalues.com', '', 7))
     report.assert_not_awaited()
 
 
@@ -190,7 +179,10 @@ def test_report_propagates_http_failures(
         async with TestServer(application) as server:
             await json_session('TEST_API_KEY', str(server.make_url('/')), 'submissions/list')(
                 unwrap(report)
-            )('Spam', b'From: sender@example.com\r\n\r\nBody')
+            )(
+                'contact@news.unchartedvalues.com',
+                b'From: contact@news.unchartedvalues.com\r\n\r\nBody',
+            )
 
     monkeypatch.setenv('TEST_API_KEY', 'key')
     with caplog.at_level(INFO), raises(ClientResponseError) as error:
@@ -205,18 +197,11 @@ def test_report_propagates_http_failures(
     ] == ([str(check_status)] if check_status != 200 else ['200', str(submit_status)])
 
 
-def test_report_rejects_negative_delay(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setattr(hammer, 'fetch_spam', fetch := AsyncMock())
-    with raises(CommandError, match='nonnegative'):
-        run(hammer.report_after_delay('sender@example.com', '', 'Spam', -1))
-    fetch.assert_not_awaited()
-
-
 @mark.parametrize('operation', ('select', 'uid_search', 'uid'))
 def test_fetch_spam_rejects_imap_failures(operation: str) -> None:
     imap = AsyncMock()
     imap.select.return_value = Response('OK', [])
     imap.uid_search.return_value = Response('OK', [b'1'])
-    getattr(imap, operation).return_value = Response('NO', [b'Unavailable'])
+    getattr(imap, operation).side_effect = CommandError('NO')
     with raises(CommandError, match='NO'):
-        run(unwrap(fetch_spam)(imap, 'sender@example.com', ''))
+        run(unwrap(fetch_spam)(imap, 'contact@news.unchartedvalues.com', ''))

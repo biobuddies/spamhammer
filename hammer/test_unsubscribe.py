@@ -1,7 +1,6 @@
 """Exercise one-click header parsing and HTTP requests without contacting a sender."""
 
 from asyncio import run
-from io import StringIO
 from pathlib import Path
 from re import findall
 from unittest.mock import AsyncMock, patch
@@ -9,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 from aiohttp import web
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from pytest import mark, raises
+from pytest import CaptureFixture, mark, raises
 
 from hammer.management.commands.unsubscribe import find_unsubscribe_url, unsubscribe
 
@@ -97,21 +96,42 @@ def test_unsubscribe_http(status: int) -> None:
     assert headers['Content-Type'] == 'application/x-www-form-urlencoded'
 
 
-def test_unsubscribe_dry_run() -> None:
+def test_unsubscribe_dry_run(capsys: CaptureFixture[str]) -> None:
     raw = (SPAM / 'thealphapaths.eml').read_bytes()
-    output = StringIO()
     with (
         patch(
             'hammer.management.commands.unsubscribe.fetch_email', new=AsyncMock(return_value=raw)
         ) as fetch,
         patch('hammer.management.commands.unsubscribe.ClientSession') as session,
     ):
-        call_command(
-            'unsubscribe', 'contact@news.thealphapaths.com 83 parcels', dry_run=True, stdout=output
-        )
+        call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels', dry_run=True)
     fetch.assert_awaited_once_with('contact@news.thealphapaths.com', '83 parcels')
     session.assert_not_called()
-    assert output.getvalue() == (
+    assert capsys.readouterr().out == (
         'Would request unsubscribe for contact@news.thealphapaths.com'
         ' via click.news.thealphapaths.com\n'
+        'Would move 0 messages from news.thealphapaths.com to Spam\n'
     )
+
+
+@mark.parametrize('accepted', (True, False))
+def test_unsubscribe_sweeps_regardless_of_result(accepted: bool) -> None:
+    with (
+        patch(
+            'hammer.management.commands.unsubscribe.unsubscribe',
+            new=(
+                AsyncMock(return_value='Accepted')
+                if accepted
+                else AsyncMock(side_effect=CommandError('Failed'))
+            ),
+        ),
+        patch(
+            'hammer.management.commands.sweep.sweep', new=AsyncMock(return_value=None)
+        ) as cleanup,
+    ):
+        if accepted:
+            call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels')
+        else:
+            with raises(CommandError, match='Failed'):
+                call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels')
+    cleanup.assert_awaited_once_with('contact@news.thealphapaths.com', dry_run=False)

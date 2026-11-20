@@ -58,6 +58,7 @@ def test_list_email_defaults_off(caplog: LogCaptureFixture, monkeypatch: MonkeyP
 )
 def test_list_email_marks_one_click(headers: str, marker: str) -> None:
     imap = AsyncMock()
+    imap.select.return_value = Response('OK', [])
     imap.search.return_value = Response('OK', [b'1 2'])
     imap.fetch.return_value = Response(
         'OK',

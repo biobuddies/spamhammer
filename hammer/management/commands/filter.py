@@ -8,10 +8,9 @@ from logging import getLogger
 from re import sub
 
 from aioimaplib import IMAP4_SSL
-from django.core.management.base import BaseCommand, CommandError, CommandParser
+from django.core.management.base import BaseCommand, CommandParser
 
-from hammer.management.commands.list_email import imap_session
-from hammer.managesieve import ManageSieve, sieve_session
+from hammer.hammer import ManageSieve, imap_session, sieve_session
 
 logger = getLogger(__name__)
 
@@ -30,7 +29,7 @@ def insert_rule(script: str, header: str, value: str, folder: str) -> str:
 @sieve_session()
 async def update_script(sieve: ManageSieve, header: str, value: str, folder: str) -> None:
     """Insert the rule into the active Sieve script, or a new spamhammer one."""
-    active = next((name for name, *flags in await sieve.listscripts() if flags == ['ACTIVE']), None)
+    active = next((name for name, *args in await sieve.listscripts() if args == ['ACTIVE']), None)
     name = active or 'spamhammer'
     script = (await sieve.getscript(f'"{name}"'))[0][0] if active else ''
     logger.info('Sieve %s before:\n%s', name, script)
@@ -46,10 +45,10 @@ async def update_script(sieve: ManageSieve, header: str, value: str, folder: str
     logger.info('Sieve %s after:\n%s', name, updated)
 
 
-@imap_session(off=True)
-async def folder_exists(imap: IMAP4_SSL, folder: str) -> bool:
+@imap_session()
+async def check_folder(imap: IMAP4_SSL, folder: str) -> None:
     """Check the exact folder, without treating wildcard characters as a LIST pattern."""
-    return (await imap.status(f'"{folder}"', '(UIDVALIDITY)')).result == 'OK'
+    await imap.status(f'"{folder}"', '(UIDVALIDITY)')
 
 
 @imap_session(off=Counter())
@@ -89,14 +88,17 @@ class Command(BaseCommand):
         **_options: object,
     ) -> None:
         """Count matches, or insert the rule."""
+        run(self.handle_async(header, value, backtest=backtest, folder=folder))
+
+    async def handle_async(self, header: str, value: str, *, backtest: bool, folder: str) -> None:
+        """Check the destination and update the Sieve script in one event loop."""
         if backtest:
-            senders = run(count_matches(header, value)) or Counter()
+            senders = await count_matches(header, value) or Counter()
             print(
                 f'{senders.total()} INBOX messages',
                 *(f'{count} {sender}' for sender, count in senders.most_common()),
                 sep='\n',
             )
             return
-        if not run(folder_exists(folder)):
-            raise CommandError(f'No {folder} folder; Sieve would keep matches in INBOX')
-        run(update_script(header, value, folder))
+        await check_folder(folder)
+        await update_script(header, value, folder)
