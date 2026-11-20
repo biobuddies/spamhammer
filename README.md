@@ -1,11 +1,11 @@
 ```mermaid
 flowchart TD
     consent{Consented?}
-    consent -->|Yes| unsubscribe[One-click unsubscribe]
-    consent -->|No| report[Report to Spamhaus]
-    unsubscribe --> sweep[Sweep matching INBOX messages to junk]
-    report --> sieve[Write Sieve filter for future matching mail]
-    sieve --> sweep
+    consent -->|Yes| unsubscribe["`**unsubscribe** via one-click endpoint`"]
+    consent -->|No| report["`**report** to Spamhaus`"]
+    unsubscribe --> sweep["`**sweep** matching INBOX messages to junk`"]
+    report --> filter["`**filter** future matching mail with Sieve`"]
+    filter --> sweep
 ```
 
 # Spamhammer
