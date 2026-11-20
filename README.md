@@ -1,20 +1,19 @@
 ```mermaid
 flowchart TD
     consent{Consented?}
-    consent -->|Yes| unsubscribe[Unsubscribe]
-    consent -->|No| report[Report]
-    unsubscribe --> route[Move future mail to junk]
-    report --> route
-    route --> read[Mark read]
-    read --> junk[Move to junk]
+    consent -->|Yes| unsubscribe[One-click unsubscribe]
+    consent -->|No| report[Report to Spamhaus]
+    unsubscribe -->|Accepted| junk[Move matching INBOX messages to junk]
+    report -->|Accepted| junk
+    report -->|Accepted| sieve[Write Sieve filter for future matching mail]
 ```
 
 # Spamhammer
 
-After a successful unsubscribe or report, mark matching inbox messages read and move them to junk.
+After a successful unsubscribe or report, `junk_email` moves matching inbox messages to junk.
 The subject substring selects the message used to unsubscribe; it does not limit cleanup. Dry runs
-inspect headers without changing flags or folders. `block` routes future matching mail to junk with
-a Sieve rule, keeping messages recoverable rather than rejecting or deleting them.
+inspect headers without moving mail. After a report, use `block` to write a Sieve `fileinto` rule for
+future matching mail.
 
 ```bash
 python -m manage junk_email MileagePlus_Partner@enews.united.com --dry-run --folder Spam
@@ -22,9 +21,8 @@ python -m manage junk_email MileagePlus_Partner@enews.united.com --folder Spam
 ```
 
 Set `SPAMHAMMER_JUNK_FOLDER` for automatic cleanup; otherwise the destination is `Spam`. The folder
-must already exist, and the server must support UID MOVE. A failed move can leave matching
-messages read or partially moved; rerun cleanup after fixing the cause. No broad EXPUNGE is issued,
-and unrelated flags are preserved.
+must already exist, and the server must support `UID MOVE`. If a move fails partway through, rerun
+cleanup after fixing the cause. The move preserves message flags.
 
 ## Cleanup scope
 

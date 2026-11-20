@@ -37,7 +37,6 @@ def make_imap(domain: str = 'news.unchartedvalues.com') -> AsyncMock:
             ],
         ),
         Response('OK', []),
-        Response('OK', []),
     ]
     return imap
 
@@ -51,15 +50,14 @@ def test_junk_scope(domain: str, sequence: str, count: int, dry_run: bool) -> No
     imap = make_imap(domain)
     counts = run(unwrap(junk_email)(imap, f'contact@{domain}', dry_run=dry_run, folder='Spam'))
     assert counts.total() == count
-    assert imap.uid.await_count == (1 if dry_run else 3)
+    assert imap.uid.await_count == (1 if dry_run else 2)
     if dry_run:
         imap.status.assert_not_awaited()
     else:
-        assert imap.uid.await_args_list[1].args == ('STORE', sequence, '+FLAGS.SILENT', '(\\Seen)')
-        assert imap.uid.await_args_list[2].args == ('MOVE', sequence, '"Spam"')
+        assert imap.uid.await_args_list[1].args == ('MOVE', sequence, '"Spam"')
 
 
-@mark.parametrize('failure', ('destination', 'capability', 'store', 'move'))
+@mark.parametrize('failure', ('destination', 'capability', 'move'))
 def test_junk_failure(failure: str) -> None:
     imap = make_imap()
     if failure == 'destination':
@@ -67,8 +65,8 @@ def test_junk_failure(failure: str) -> None:
     if failure == 'capability':
         imap.protocol.capabilities = set()
     responses = list(imap.uid.side_effect)
-    if failure in {'store', 'move'}:
-        responses[1 if failure == 'store' else 2] = CommandError(f'UID {failure.upper()} NO')
+    if failure == 'move':
+        responses[1] = CommandError('UID MOVE NO')
     imap.uid.side_effect = responses
     with raises(CommandError):
         run(
@@ -76,9 +74,7 @@ def test_junk_failure(failure: str) -> None:
                 imap, 'contact@news.unchartedvalues.com', dry_run=False, folder='Spam'
             )
         )
-    assert (
-        imap.uid.await_count == {'destination': 1, 'capability': 1, 'store': 2, 'move': 3}[failure]
-    )
+    assert imap.uid.await_count == (2 if failure == 'move' else 1)
 
 
 def test_junk_empty() -> None:

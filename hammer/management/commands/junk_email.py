@@ -1,4 +1,4 @@
-"""Mark matching inbox messages read and move them to a junk folder, Spam by default."""
+"""Move matching inbox messages to a junk folder, Spam by default."""
 
 from asyncio import run
 from collections import Counter
@@ -50,7 +50,7 @@ def match_messages(lines: Sequence[bytes | bytearray], scope: str) -> dict[str, 
 
 @imap_session(off=Counter())
 async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool, folder: str) -> Counter[str]:
-    """Check exact From addresses, then add Seen and UID MOVE only the matched messages."""
+    """Check exact From addresses, then UID MOVE only the matched messages."""
     scope = cleanup_scope(sender)
     quoted_folder = f'"{folder}"'
     if folder.casefold() == 'inbox':
@@ -67,16 +67,15 @@ async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool, folder: str
     if dry_run or not matches:
         return counts
     if not imap.protocol or 'MOVE' not in imap.protocol.capabilities:
-        raise CommandError('Server must support UID MOVE; no flags changed')
+        raise CommandError('Server must support UID MOVE')
     destination = await imap.status(quoted_folder, '(UIDVALIDITY)')
     if destination.result != 'OK':
         raise CommandError(f'STATUS {folder!r} {destination.result}')
     sequence = ','.join(matches)
-    await imap.uid('STORE', sequence, '+FLAGS.SILENT', '(\\Seen)')
     try:
         await imap.uid('MOVE', sequence, quoted_folder)
     except CommandError as error:
-        raise CommandError(f'{error}; matching messages may already be read or moved') from error
+        raise CommandError(f'{error}; some matching messages may already have moved') from error
     return counts
 
 
