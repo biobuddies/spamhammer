@@ -111,10 +111,12 @@ STATIC_URL = 'static/'
 
 MAILERS = {'default': {'BACKEND': 'django.core.mail.backends.console.EmailBackend'}}
 
-LOG_LEVEL = getenv('SPAMHAMMER_LOG_LEVEL', 'DEBUG' if DEBUG else 'INFO')
 LOGGING = {
     'disable_existing_loggers': False,
     'handlers': {'console': {'class': 'logging.StreamHandler'}},
-    'root': {'handlers': ['console'], 'level': LOG_LEVEL},
+    'root': {
+        'handlers': ['console'],
+        'level': getenv('SPAMHAMMER_LOG_LEVEL', 'DEBUG' if DEBUG else 'INFO'),
+    },
     'version': 1,
 }

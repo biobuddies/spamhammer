@@ -62,25 +62,36 @@ def test_block_surfaces_failed_writes(
         'require "fileinto";\n'
         'if header :contains "From" "unchartedvalues.com" { fileinto "Spam"; stop; }\n'
     )
-    commands = [
-        b'LISTSCRIPTS\r\n',
-        b'CHECKSCRIPT {%d+}\r\n%s\r\n' % (len(script), script.encode()),
-        b'PUTSCRIPT "spamhammer" {%d+}\r\n%s\r\n' % (len(script), script.encode()),
-        b'SETACTIVE "spamhammer"\r\n',
-    ]
-    assert sent() == b''.join(commands[: list(responses).index(operation) + 2]) + b'LOGOUT\r\n'
+    assert (
+        sent()
+        == b''.join(
+            [
+                b'LISTSCRIPTS\r\n',
+                b'CHECKSCRIPT {%d+}\r\n%s\r\n' % (len(script), script.encode()),
+                b'PUTSCRIPT "spamhammer" {%d+}\r\n%s\r\n' % (len(script), script.encode()),
+                b'SETACTIVE "spamhammer"\r\n',
+            ][: list(responses).index(operation) + 2]
+        )
+        + b'LOGOUT\r\n'
+    )
 
 
 def test_insert_rule_parses_and_matches_real_spam() -> None:
     spam = message_from_bytes(
         (Path(__file__).parent / 'spam' / 'thealphapaths.eml').read_bytes(), policy=policy.default
     )
-    roundcube = (
-        '# roundcube\nrequire ["fileinto","imap4flags"];\n'
-        '# rule:[Spam: Move]\nif anyof (header :contains "x-spam-level" "***")\n'
-        '{\n\tfileinto "Spam";\n}\n'
+    assert Parser().parse(
+        insert_rule(
+            (
+                '# roundcube\nrequire ["fileinto","imap4flags"];\n'
+                '# rule:[Spam: Move]\nif anyof (header :contains "x-spam-level" "***")\n'
+                '{\n\tfileinto "Spam";\n}\n'
+            ),
+            'From',
+            'thealphapaths.com',
+            'Spam',
+        ).encode()
     )
-    assert Parser().parse(insert_rule(roundcube, 'From', 'thealphapaths.com', 'Spam').encode())
     assert 'thealphapaths.com' in spam['From']
 
 

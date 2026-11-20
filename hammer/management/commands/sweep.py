@@ -2,8 +2,7 @@
 
 from asyncio import run
 from collections import Counter
-from collections.abc import AsyncIterator, Callable, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import Sequence
 from email import message_from_bytes, policy
 from email.utils import parseaddr
 from re import search
@@ -61,8 +60,10 @@ async def sweep(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
     numbers = (await imap.uid_search('FROM', f'"{value}"')).lines[0].decode().split()
     if not numbers:
         return Counter()
-    fetched = await imap.uid('FETCH', ','.join(numbers), '(UID BODY.PEEK[HEADER.FIELDS (FROM)])')
-    matches = match_messages(fetched.lines, scope)
+    matches = match_messages(
+        (await imap.uid('FETCH', ','.join(numbers), '(UID BODY.PEEK[HEADER.FIELDS (FROM)])')).lines,
+        scope,
+    )
     counts = Counter(matches.values())
     if dry_run or not matches:
         return counts
@@ -87,19 +88,6 @@ async def sweep_summary(sender: str, *, dry_run: bool) -> str:
     )
 
 
-@asynccontextmanager
-async def sweep_after(
-    sender: str, *, dry_run: bool, write: Callable[[str], None]
-) -> AsyncIterator[None]:
-    """Sweep after the request finishes or fails, and leave cancellations alone."""
-    try:
-        yield
-    except Exception:
-        write(await sweep_summary(sender, dry_run=dry_run))
-        raise
-    write(await sweep_summary(sender, dry_run=dry_run))
-
-
 class Command(BaseCommand):
     help = __doc__
 
@@ -110,4 +98,4 @@ class Command(BaseCommand):
 
     def handle(self, *_args: object, sender: str, dry_run: bool, **_options: object) -> None:
         """Print the affected message count and sender breakdown."""
-        self.stdout.write(run(sweep_summary(sender, dry_run=dry_run)))
+        print(run(sweep_summary(sender, dry_run=dry_run)))

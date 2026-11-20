@@ -64,12 +64,12 @@ class ManageSieve:
         }:
             raise AttributeError(verb)
 
-        async def command(*arguments: str) -> list[list[str]]:
-            self.writer.write(f'{" ".join((verb.upper(), *arguments))}\r\n'.encode())
+        async def inner(*args: str) -> list[list[str]]:
+            self.writer.write(f'{" ".join((verb.upper(), *args))}\r\n'.encode())
             await self.writer.drain()
             return await self.read_response(verb.upper())
 
-        return command
+        return inner
 
 
 def sieve_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runner[P, T]]:
@@ -86,8 +86,13 @@ def sieve_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Run
             await sieve.starttls()
             await sieve.writer.start_tls(create_default_context(), server_hostname=hostname)
             await sieve.read_response('capabilities')
-            credentials = f'\0{unquote(parsed.username or "")}\0{unquote(parsed.password or "")}'
-            await sieve.authenticate('"PLAIN"', '"%s"' % b64encode(credentials.encode()).decode())
+            await sieve.authenticate(
+                '"PLAIN"',
+                '"%s"'
+                % b64encode(
+                    f'\0{unquote(parsed.username or "")}\0{unquote(parsed.password or "")}'.encode()
+                ).decode(),
+            )
             logger.info('%s ManageSieve AUTHENTICATE OK', hostname)
             try:
                 return await function(sieve, *args, **kwargs)

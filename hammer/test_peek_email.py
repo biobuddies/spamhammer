@@ -2,13 +2,12 @@
 
 from asyncio import run
 from inspect import unwrap
-from io import StringIO
 from unittest.mock import AsyncMock, patch
 
 from aioimaplib import Response
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from pytest import mark, raises
+from pytest import CaptureFixture, mark, raises
 
 from hammer.management.commands.peek_email import fetch_email
 
@@ -46,8 +45,7 @@ def test_fetch_email_missing_or_failed_search(result: str) -> None:
     imap.uid.assert_not_awaited()
 
 
-def test_peek_email() -> None:
-    output = StringIO()
+def test_peek_email(capsys: CaptureFixture[str]) -> None:
     raw = (
         b'From: contact@news.unchartedvalues.com\r\nSubject: Solar is dead.\r\n\r\n'
         b'Complete body\r\n'
@@ -55,5 +53,5 @@ def test_peek_email() -> None:
     with patch(
         'hammer.management.commands.peek_email.fetch_email', new=AsyncMock(return_value=raw)
     ):
-        call_command('peek_email', 'contact@news.unchartedvalues.com Solar', stdout=output)
-    assert output.getvalue() == raw.decode()
+        call_command('peek_email', 'contact@news.unchartedvalues.com Solar')
+    assert capsys.readouterr().out == raw.decode()

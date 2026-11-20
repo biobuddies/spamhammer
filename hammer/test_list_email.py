@@ -68,9 +68,8 @@ def test_imap_client_checks_responses(
     monkeypatch: MonkeyPatch, method: str, arguments: tuple[str, ...], message: str
 ) -> None:
     monkeypatch.setattr(IMAP4_SSL, method, AsyncMock(return_value=Response('NO', [])))
-    imap = object.__new__(ImapClient)
     with raises(CommandError, match=message):
-        run(getattr(imap, method)(*arguments))
+        run(getattr(object.__new__(ImapClient), method)(*arguments))
 
 
 @mark.parametrize(

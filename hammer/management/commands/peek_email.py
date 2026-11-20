@@ -14,8 +14,7 @@ from hammer.management.commands.list_email import imap_session
 async def fetch_email(imap: IMAP4_SSL, sender: str, subject: str = '') -> bytes:
     """Fetch the latest sender and subject substring match using BODY.PEEK."""
     await imap.select('INBOX')
-    found = await imap.uid_search('FROM', f'"{sender}"')
-    numbers = found.lines[0].decode().split()
+    numbers = (await imap.uid_search('FROM', f'"{sender}"')).lines[0].decode().split()
     if numbers:
         fetched = await imap.uid('FETCH', ','.join(numbers), 'BODY.PEEK[]')
         for line in reversed(fetched.lines):
@@ -42,4 +41,4 @@ class Command(BaseCommand):
         """Print the complete RFC 5322 message."""
         sender, _, subject = email.partition(' ')
         if message := run(fetch_email(sender, subject)):
-            self.stdout.write(message.decode('utf-8', errors='replace'), ending='')
+            print(message.decode('utf-8', errors='replace'), end='')

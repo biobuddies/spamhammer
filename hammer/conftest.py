@@ -13,7 +13,7 @@ from hammer import managesieve
 def sieve_server(monkeypatch: MonkeyPatch) -> Callable[..., Callable[[], bytes]]:
     """Answer ManageSieve commands after login with canned responses; return what was sent."""
 
-    def serve(*responses: bytes) -> Callable[[], bytes]:
+    def serve(*args: bytes) -> Callable[[], bytes]:
         monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
         writer = MagicMock(drain=AsyncMock(), start_tls=AsyncMock())
 
@@ -21,7 +21,7 @@ def sieve_server(monkeypatch: MonkeyPatch) -> Callable[..., Callable[[], bytes]]
             assert (hostname, port) == ('imap.biobuddi.es', 4190)
             reader = StreamReader()
             reader.feed_data(
-                b'"SASL" ""\r\nOK\r\nOK\r\n"SASL" "PLAIN"\r\nOK\r\nOK\r\n' + b''.join(responses)
+                b'"SASL" ""\r\nOK\r\nOK\r\n"SASL" "PLAIN"\r\nOK\r\nOK\r\n' + b''.join(args)
             )
             reader.feed_eof()
             return reader, writer

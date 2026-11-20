@@ -32,30 +32,29 @@ class ImapClient(IMAP4_SSL):
             return method
 
         @wraps(method)
-        async def command(*arguments: str, **options: str | None) -> Response:
-            response = await method(*arguments, **options)
+        async def inner(*args: str, **kwargs: str | None) -> Response:
+            response = await method(*args, **kwargs)
             if response.result == 'OK':
                 return response
             match name:
                 case 'login':
                     raise ConnectionError(f'{self.host} LOGIN {response.result}')
                 case 'select':
-                    mailbox = arguments[0] if arguments else options.get('mailbox', 'INBOX')
+                    mailbox = args[0] if args else kwargs.get('mailbox', 'INBOX')
                     operation = f'{mailbox} SELECT'
                 case 'uid':
-                    verb = arguments[0] if arguments else options['command']
+                    verb = args[0] if args else kwargs['command']
                     operation = f'UID {verb}'
                 case _:
                     operation = name.replace('_', ' ').upper()
             raise CommandError(f'{operation} {response.result}')
 
-        return command
+        return inner
 
 
 def read_email_url() -> ParseResult | None:
     """Parse SPAMHAMMER_EMAIL_URLS, delimited by commas and/or whitespace; None when off."""
-    urls = environ.get('SPAMHAMMER_EMAIL_URLS', 'off')
-    match [url for url in split(r'[\s,]+', urls) if url]:
+    match [url for url in split(r'[\s,]+', environ.get('SPAMHAMMER_EMAIL_URLS', 'off')) if url]:
         case []:
             raise ImproperlyConfigured('SPAMHAMMER_EMAIL_URLS empty; off skips')
         case [url] if url.startswith('off'):
@@ -116,8 +115,7 @@ async def list_email(imap: IMAP4_SSL) -> list[str]:
     The first tab-separated field suits hammer's spam argument.
     """
     await imap.select('INBOX')
-    found = await imap.search('UNSEEN')
-    if not (numbers := found.lines[0].decode().split()[-10:]):
+    if not (numbers := (await imap.search('UNSEEN')).lines[0].decode().split()[-10:]):
         return []
     fetched = await imap.fetch(
         ','.join(numbers),

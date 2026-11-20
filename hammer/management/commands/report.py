@@ -7,7 +7,7 @@ from os import environ, getpid
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from hammer.hammer import report_after_delay
-from hammer.management.commands.sweep import sweep_after
+from hammer.management.commands.sweep import sweep_summary
 
 logger = getLogger(__name__)
 
@@ -26,7 +26,7 @@ class Command(BaseCommand):
     def handle(
         self, *_args: object, delay_seconds: int, reason: str | None, spam: str, **_options: object
     ) -> None:
-        """Report matching inbox messages to Spamhaus."""
+        """Report the latest matching inbox message to Spamhaus."""
         run(self.handle_async(spam, delay_seconds=delay_seconds, reason=reason))
 
     async def handle_async(self, spam: str, *, delay_seconds: int, reason: str | None) -> None:
@@ -41,7 +41,11 @@ class Command(BaseCommand):
             if (run_id := environ.get('GITHUB_RUN_ID'))
             else f'kill {getpid()}',
         )
-        async with sweep_after(sender, dry_run=False, write=self.stdout.write):
+        try:
             await report_after_delay(
                 sender, subject, reason or f'Unsolicited email from {sender}', delay_seconds
             )
+        except Exception:
+            print(await sweep_summary(sender, dry_run=False))
+            raise
+        print(await sweep_summary(sender, dry_run=False))

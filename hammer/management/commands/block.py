@@ -30,7 +30,7 @@ def insert_rule(script: str, header: str, value: str, folder: str) -> str:
 @sieve_session()
 async def update_script(sieve: ManageSieve, header: str, value: str, folder: str) -> None:
     """Insert the rule into the active Sieve script, or a new spamhammer one."""
-    active = next((name for name, *flags in await sieve.listscripts() if flags == ['ACTIVE']), None)
+    active = next((name for name, *args in await sieve.listscripts() if args == ['ACTIVE']), None)
     name = active or 'spamhammer'
     script = (await sieve.getscript(f'"{name}"'))[0][0] if active else ''
     logger.info('Sieve %s before:\n%s', name, script)
