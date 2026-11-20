@@ -38,7 +38,9 @@ def test_fetch_email(subject: str) -> None:
 def test_fetch_email_missing_or_failed_search(result: str) -> None:
     imap = AsyncMock()
     imap.select.return_value = Response('OK', [])
-    imap.uid_search.return_value = Response(result, [b''])
+    imap.uid_search.return_value = Response('OK', [b''])
+    if result == 'NO':
+        imap.uid_search.side_effect = CommandError('UID SEARCH NO')
     with raises(CommandError):
         run(unwrap(fetch_email)(imap, 'contact@news.unchartedvalues.com'))
     imap.uid.assert_not_awaited()

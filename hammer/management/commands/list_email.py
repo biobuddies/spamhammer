@@ -23,7 +23,13 @@ type Session[**P, T] = Callable[Concatenate[IMAP4_SSL, P], Coroutine[Any, Any, T
 
 
 class ImapClient(IMAP4_SSL):
-    """Raise a connection error when the server rejects login."""
+    """Raise on failed login and mailbox commands, leaving STATUS available for probes."""
+
+    @staticmethod
+    def _checked(response: Response, operation: str) -> Response:
+        if response.result != 'OK':
+            raise CommandError(f'{operation} {response.result}')
+        return response
 
     @override
     async def login(self, user: str, password: str) -> Response:
@@ -31,6 +37,26 @@ class ImapClient(IMAP4_SSL):
         if response.result != 'OK':
             raise ConnectionError(f'{self.host} LOGIN {response.result}')
         return response
+
+    @override
+    async def select(self, mailbox: str = 'INBOX') -> Response:
+        return self._checked(await super().select(mailbox), f'{mailbox} SELECT')
+
+    @override
+    async def search(self, *criteria: str, charset: str | None = 'utf-8') -> Response:
+        return self._checked(await super().search(*criteria, charset=charset), 'SEARCH')
+
+    @override
+    async def uid_search(self, *criteria: str, charset: str | None = 'utf-8') -> Response:
+        return self._checked(await super().uid_search(*criteria, charset=charset), 'UID SEARCH')
+
+    @override
+    async def fetch(self, message_set: str, message_parts: str) -> Response:
+        return self._checked(await super().fetch(message_set, message_parts), 'FETCH')
+
+    @override
+    async def uid(self, command: str, *criteria: str) -> Response:
+        return self._checked(await super().uid(command, *criteria), f'UID {command}')
 
 
 def read_email_url() -> ParseResult | None:
@@ -73,13 +99,6 @@ def imap_session[**P, T](off: T | None = None) -> Callable[[Session[P, T]], Runn
     return decorate
 
 
-def require_ok(response: Response, operation: str) -> Response:
-    """Return the response or raise when the caller needs the command to succeed."""
-    if response.result != 'OK':
-        raise CommandError(f'{operation} {response.result}')
-    return response
-
-
 def describe_email(raw: bytes) -> str:
     """Append a tab-separated marker when the headers support one-click unsubscribe."""
     message = message_from_bytes(raw, policy=policy.default)
@@ -97,16 +116,13 @@ async def list_email(imap: IMAP4_SSL) -> list[str]:
 
     The first tab-separated field suits hammer's spam argument.
     """
-    require_ok(await imap.select('INBOX'), 'INBOX SELECT')
-    found = require_ok(await imap.search('UNSEEN'), 'SEARCH UNSEEN')
+    await imap.select('INBOX')
+    found = await imap.search('UNSEEN')
     if not (numbers := found.lines[0].decode().split()[-10:]):
         return []
-    fetched = require_ok(
-        await imap.fetch(
-            ','.join(numbers),
-            'BODY.PEEK[HEADER.FIELDS (FROM SUBJECT LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST)]',
-        ),
-        'FETCH',
+    fetched = await imap.fetch(
+        ','.join(numbers),
+        'BODY.PEEK[HEADER.FIELDS (FROM SUBJECT LIST-UNSUBSCRIBE LIST-UNSUBSCRIBE-POST)]',
     )
     # TODO: cross reference senders against contacts, e.g. CardDAV
     return [describe_email(bytes(line)) for line in fetched.lines if isinstance(line, bytearray)]

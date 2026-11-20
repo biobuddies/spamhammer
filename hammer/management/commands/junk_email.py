@@ -11,7 +11,7 @@ from re import search
 from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from hammer.management.commands.list_email import imap_session, require_ok
+from hammer.management.commands.list_email import imap_session
 
 
 def cleanup_scope(sender: str) -> str:
@@ -55,30 +55,28 @@ async def junk_email(imap: IMAP4_SSL, sender: str, *, dry_run: bool, folder: str
     quoted_folder = f'"{folder}"'
     if folder.casefold() == 'inbox':
         raise CommandError('Destination cannot be INBOX')
-    require_ok(await imap.select('INBOX'), 'INBOX SELECT')
+    await imap.select('INBOX')
     value = scope if '@' in scope else '@' + scope
-    found = require_ok(await imap.uid_search('FROM', f'"{value}"'), 'UID SEARCH')
+    found = await imap.uid_search('FROM', f'"{value}"')
     numbers = found.lines[0].decode().split()
     if not numbers:
         return Counter()
-    fetched = require_ok(
-        await imap.uid('FETCH', ','.join(numbers), '(UID BODY.PEEK[HEADER.FIELDS (FROM)])'),
-        'UID FETCH',
-    )
+    fetched = await imap.uid('FETCH', ','.join(numbers), '(UID BODY.PEEK[HEADER.FIELDS (FROM)])')
     matches = match_messages(fetched.lines, scope)
     counts = Counter(matches.values())
     if dry_run or not matches:
         return counts
     if not imap.protocol or 'MOVE' not in imap.protocol.capabilities:
         raise CommandError('Server must support UID MOVE; no flags changed')
-    require_ok(await imap.status(quoted_folder, '(UIDVALIDITY)'), f'STATUS {folder!r}')
+    destination = await imap.status(quoted_folder, '(UIDVALIDITY)')
+    if destination.result != 'OK':
+        raise CommandError(f'STATUS {folder!r} {destination.result}')
     sequence = ','.join(matches)
-    require_ok(await imap.uid('STORE', sequence, '+FLAGS.SILENT', '(\\Seen)'), 'UID STORE')
-    moved = await imap.uid('MOVE', sequence, quoted_folder)
-    if moved.result != 'OK':
-        raise CommandError(
-            f'UID MOVE {moved.result}; matching messages may already be read or moved'
-        )
+    await imap.uid('STORE', sequence, '+FLAGS.SILENT', '(\\Seen)')
+    try:
+        await imap.uid('MOVE', sequence, quoted_folder)
+    except CommandError as error:
+        raise CommandError(f'{error}; matching messages may already be read or moved') from error
     return counts
 
 

@@ -23,7 +23,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
-from hammer.management.commands.list_email import imap_session, require_ok
+from hammer.management.commands.list_email import imap_session
 
 logger = getLogger(__name__)
 type Json = dict[str, Any]
@@ -93,13 +93,13 @@ def json_session[**P](
 @imap_session()
 async def fetch_spam(imap: IMAP4_SSL, sender: str, subject: str) -> bytes | None:
     """Return the latest raw inbox message from sender, and with subject if given, left unread."""
-    require_ok(await imap.select('INBOX'), 'INBOX SELECT')
+    await imap.select('INBOX')
     criteria = ('FROM', f'"{sender}"', *(('SUBJECT', f'"{subject}"') if subject else ()))
-    found = require_ok(await imap.uid_search(*criteria), 'UID SEARCH')
+    found = await imap.uid_search(*criteria)
     numbers = found.lines[0].decode().split()
     if not numbers:
         return None
-    fetched = require_ok(await imap.uid('FETCH', ','.join(numbers), 'BODY.PEEK[]'), 'UID FETCH')
+    fetched = await imap.uid('FETCH', ','.join(numbers), 'BODY.PEEK[]')
     return next(
         (
             bytes(line)

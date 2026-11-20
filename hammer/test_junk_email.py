@@ -68,7 +68,7 @@ def test_junk_failure(failure: str) -> None:
         imap.protocol.capabilities = set()
     responses = list(imap.uid.side_effect)
     if failure in {'store', 'move'}:
-        responses[1 if failure == 'store' else 2] = Response('NO', [])
+        responses[1 if failure == 'store' else 2] = CommandError(f'UID {failure.upper()} NO')
     imap.uid.side_effect = responses
     with raises(CommandError):
         run(

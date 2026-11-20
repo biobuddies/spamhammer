@@ -12,7 +12,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
-from hammer.management.commands.list_email import list_email
+from hammer.management.commands.list_email import ImapClient, list_email
 
 UNSUBSCRIBE, ONE_CLICK = (
     line
@@ -53,13 +53,23 @@ def test_imap_session_raises_on_rejected_login(monkeypatch: MonkeyPatch) -> None
     select.assert_not_awaited()
 
 
-def test_list_email_stops_after_failed_search() -> None:
-    imap = AsyncMock()
-    imap.select.return_value = Response('OK', [])
-    imap.search.return_value = Response('NO', [])
-    with raises(CommandError, match='SEARCH UNSEEN NO'):
-        run(unwrap(list_email)(imap))
-    imap.fetch.assert_not_awaited()
+@mark.parametrize(
+    ('method', 'arguments', 'message'),
+    (
+        ('select', ('INBOX',), 'INBOX SELECT NO'),
+        ('search', ('UNSEEN',), 'SEARCH NO'),
+        ('uid_search', ('UNSEEN',), 'UID SEARCH NO'),
+        ('fetch', ('1', 'BODY.PEEK[]'), 'FETCH NO'),
+        ('uid', ('MOVE', '1', 'Spam'), 'UID MOVE NO'),
+    ),
+)
+def test_imap_client_checks_responses(
+    monkeypatch: MonkeyPatch, method: str, arguments: tuple[str, ...], message: str
+) -> None:
+    monkeypatch.setattr(IMAP4_SSL, method, AsyncMock(return_value=Response('NO', [])))
+    imap = object.__new__(ImapClient)
+    with raises(CommandError, match=message):
+        run(getattr(imap, method)(*arguments))
 
 
 @mark.parametrize(

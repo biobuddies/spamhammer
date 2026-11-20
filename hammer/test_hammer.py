@@ -228,7 +228,7 @@ def test_fetch_spam_rejects_imap_failures(operation: str) -> None:
     imap = AsyncMock()
     imap.select.return_value = Response('OK', [])
     imap.uid_search.return_value = Response('OK', [b'1'])
-    getattr(imap, operation).return_value = Response('NO', [b'Unavailable'])
+    getattr(imap, operation).side_effect = CommandError('NO')
     with raises(CommandError, match='NO'):
         run(unwrap(fetch_spam)(imap, 'contact@news.unchartedvalues.com', ''))
 
