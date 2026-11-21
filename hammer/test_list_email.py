@@ -28,7 +28,7 @@ def test_list_email_rejects_empty(monkeypatch: MonkeyPatch, urls: str) -> None:
 
 
 @mark.parametrize('urls', ('imaps://a:b@c, imaps://d:e@f', 'imaps://a:b@c imaps://d:e@f'))
-def test_list_email_requires_one_url(monkeypatch: MonkeyPatch, urls: str) -> None:
+def test_list_email_requires_submission_after_first(monkeypatch: MonkeyPatch, urls: str) -> None:
     monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', urls)
     with raises(NotImplementedError):
         call_command('list_email')
