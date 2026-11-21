@@ -16,18 +16,16 @@ from hammer.hammer import Json
 from hammer.management.commands import report as report_command
 from hammer.management.commands import sweep
 from hammer.management.commands.report import (
-    PLATFORMS,
-    Platform,
     compose_report,
-    email_reports,
-    match_platforms,
+    send_salesforce_report,
+    signed_by_salesforce,
 )
 
-SALESFORCE = PLATFORMS[0]
 SPAM = (Path(__file__).parent / 'spam' / 'thealphapaths.eml').read_bytes()
 AUTHENTICATED_SPAM = (
     b'Authentication-Results: biobuddi.es (amavis);\r\n'
-    b' dkim=pass (2048-bit key) header.d=s51.y.mc.salesforce.com\r\n' + SPAM
+    b' dkim=pass (2048-bit key) header.d=s51.y.mc.salesforce.com;\r\n'
+    b' dkim=pass header.d=exacttarget.com\r\n' + SPAM
 )
 
 
@@ -122,7 +120,7 @@ def test_report_sweeps_after_smtp_failure(monkeypatch: MonkeyPatch) -> None:
         report_command, 'report_after_delay', AsyncMock(return_value=(b'email', {}))
     )
     monkeypatch.setattr(
-        report_command, 'email_reports', send := Mock(side_effect=OSError('SMTP failed'))
+        report_command, 'send_salesforce_report', send := Mock(side_effect=OSError('SMTP failed'))
     )
     monkeypatch.setattr(sweep, 'sweep', cleanup := AsyncMock(return_value=Counter()))
     with raises(OSError, match='SMTP failed'):
@@ -132,36 +130,36 @@ def test_report_sweeps_after_smtp_failure(monkeypatch: MonkeyPatch) -> None:
 
 
 @mark.parametrize(
-    ('header', 'platforms'),
+    ('header', 'signed'),
     (
         (
             b'Authentication-Results: biobuddi.es; dkim=pass header.d=alv174.mta.exacttarget.com',
-            [SALESFORCE],
+            True,
         ),
         (
             b'Authentication-Results: imap.biobuddi.es; DKIM=PASS header.d=s51.y.mc.salesforce.com',
-            [SALESFORCE],
+            True,
         ),
-        (b'Authentication-Results: biobuddi.es; dkim=fail header.d=exacttarget.com', []),
-        (b'Authentication-Results: sender.example; dkim=pass header.d=exacttarget.com', []),
-        (b'Authentication-Results: biobuddi.es; dkim=pass header.d=exacttarget.com.example', []),
-        (b'Received: from alv174.mta.exacttarget.com', []),
-        (b'DKIM-Signature: v=1; d=s51.y.mc.salesforce.com;', []),
+        (b'Authentication-Results: biobuddi.es; dkim=fail header.d=exacttarget.com', False),
+        (b'Authentication-Results: sender.example; dkim=pass header.d=exacttarget.com', False),
+        (b'Authentication-Results: biobuddi.es; dkim=pass header.d=exacttarget.com.example', False),
+        (b'Received: from alv174.mta.exacttarget.com', False),
+        (b'DKIM-Signature: v=1; d=s51.y.mc.salesforce.com;', False),
         (
             (
                 b'Authentication-Results: biobuddi.es; dkim=none\r\n'
                 b'Authentication-Results: biobuddi.es; dkim=pass header.d=exacttarget.com'
             ),
-            [],
+            False,
         ),
     ),
 )
-def test_match_platforms(header: bytes, platforms: list[Platform]) -> None:
-    assert match_platforms(header + b'\r\n\r\nAct now', 'imap.biobuddi.es') == platforms
+def test_signed_by_salesforce(header: bytes, signed: bool) -> None:
+    assert signed_by_salesforce(header + b'\r\n\r\nAct now', 'imap.biobuddi.es') is signed
 
 
 def test_compose_report() -> None:
-    serialized = compose_report('busybuddy@biobuddi.es', SALESFORCE, SPAM).as_bytes()
+    serialized = compose_report('busybuddy@biobuddi.es', SPAM).as_bytes()
     report = message_from_bytes(serialized, policy=policy.default)
     assert (report['From'], report['To'], report['Subject']) == (
         'busybuddy@biobuddi.es',
@@ -186,7 +184,7 @@ def test_compose_report() -> None:
         ('submit://buddy%40biobuddi.es:other@smtp.biobuddi.es', ('buddy@biobuddi.es', 'other')),
     ),
 )
-def test_email_reports(
+def test_send_salesforce_report(
     login_pair: tuple[str, str], monkeypatch: MonkeyPatch, submission: str
 ) -> None:
     monkeypatch.setattr(report_command, 'SMTP', smtp_class := MagicMock())
@@ -194,28 +192,28 @@ def test_email_reports(
         'SPAMHAMMER_EMAIL_URLS',
         f'imaps://busybuddy%40biobuddi.es:secret@imap.biobuddi.es, {submission}',
     )
-    email_reports(AUTHENTICATED_SPAM)
+    send_salesforce_report(AUTHENTICATED_SPAM)
     smtp_class.assert_called_once_with('smtp.biobuddi.es', 587, timeout=30)
     smtp = smtp_class.return_value.__enter__.return_value
     smtp.login.assert_called_once_with(*login_pair)
-    assert [
-        (call.args[0]['From'], call.args[0]['To']) for call in smtp.send_message.call_args_list
-    ] == [('busybuddy@biobuddi.es', 'abuse@salesforce.com')]
+    smtp.send_message.assert_called_once()
+    message = smtp.send_message.call_args.args[0]
+    assert (message['From'], message['To']) == ('busybuddy@biobuddi.es', 'abuse@salesforce.com')
 
 
-def test_email_reports_needs_submission(
+def test_salesforce_report_needs_submission(
     caplog: LogCaptureFixture, monkeypatch: MonkeyPatch
 ) -> None:
     monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
     with caplog.at_level(INFO):
-        email_reports(AUTHENTICATED_SPAM)
+        send_salesforce_report(AUTHENTICATED_SPAM)
     assert 'No submit:// URL; skipped Salesforce Marketing Cloud' in caplog.text
 
 
-def test_email_reports_unknown_platform(
+def test_salesforce_report_needs_verified_signature(
     caplog: LogCaptureFixture, monkeypatch: MonkeyPatch
 ) -> None:
     monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
     with caplog.at_level(INFO):
-        email_reports(b'Received: from mail.biobuddi.es\r\n\r\nHi')
-    assert 'No verified DKIM signature from a known platform' in caplog.text
+        send_salesforce_report(b'Received: from mail.biobuddi.es\r\n\r\nHi')
+    assert 'No verified Salesforce Marketing Cloud DKIM signature' in caplog.text
