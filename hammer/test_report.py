@@ -11,11 +11,17 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from pytest import LogCaptureFixture, MonkeyPatch, mark, raises
 
-from hammer import abuse, hammer
-from hammer.abuse import PLATFORMS, Platform, compose_report, email_reports, match_platforms
+from hammer import hammer
 from hammer.hammer import Json
 from hammer.management.commands import report as report_command
 from hammer.management.commands import sweep
+from hammer.management.commands.report import (
+    PLATFORMS,
+    Platform,
+    compose_report,
+    email_reports,
+    match_platforms,
+)
 
 SALESFORCE = PLATFORMS[0]
 SPAM = (Path(__file__).parent / 'spam' / 'thealphapaths.eml').read_bytes()
@@ -183,7 +189,7 @@ def test_compose_report() -> None:
 def test_email_reports(
     login_pair: tuple[str, str], monkeypatch: MonkeyPatch, submission: str
 ) -> None:
-    monkeypatch.setattr(abuse, 'SMTP', smtp_class := MagicMock())
+    monkeypatch.setattr(report_command, 'SMTP', smtp_class := MagicMock())
     monkeypatch.setenv(
         'SPAMHAMMER_EMAIL_URLS',
         f'imaps://busybuddy%40biobuddi.es:secret@imap.biobuddi.es, {submission}',
