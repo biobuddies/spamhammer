@@ -65,7 +65,7 @@ class ImapClient(IMAP4_SSL):
 def read_email_urls() -> list[ParseResult]:
     """Parse SPAMHAMMER_EMAIL_URLS, delimited by commas and/or whitespace; [] when off.
 
-    The first serves IMAP and ManageSieve; any others must be submission://, serving SMTP.
+    The first serves IMAP and ManageSieve; any others must be submit:// for SMTP submission.
     """
     urls = environ.get('SPAMHAMMER_EMAIL_URLS', 'off')
     match [urlparse(url) for url in split(r'[\s,]+', urls) if url]:
@@ -74,10 +74,10 @@ def read_email_urls() -> list[ParseResult]:
         case [parsed] if parsed.geturl().startswith('off'):
             logger.info('SPAMHAMMER_EMAIL_URLS off')
             return []
-        case [_, *others] as parsed if all(other.scheme == 'submission' for other in others):
+        case [_, *others] as parsed if all(other.scheme == 'submit' for other in others):
             return parsed
         case _:
-            raise NotImplementedError('SPAMHAMMER_EMAIL_URLS past the first must be submission://')
+            raise NotImplementedError('SPAMHAMMER_EMAIL_URLS past the first must be submit://')
 
 
 def read_email_url() -> ParseResult | None:

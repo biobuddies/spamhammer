@@ -69,8 +69,8 @@ def test_compose_report() -> None:
 @mark.parametrize(
     ('submission', 'login_pair'),
     (
-        ('submission://smtp.biobuddi.es', ('busybuddy@biobuddi.es', 'secret')),
-        ('submission://buddy%40biobuddi.es:other@smtp.biobuddi.es', ('buddy@biobuddi.es', 'other')),
+        ('submit://smtp.biobuddi.es', ('busybuddy@biobuddi.es', 'secret')),
+        ('submit://buddy%40biobuddi.es:other@smtp.biobuddi.es', ('buddy@biobuddi.es', 'other')),
     ),
 )
 def test_email_reports(
@@ -96,7 +96,7 @@ def test_email_reports_needs_submission(
     monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://busybuddy:secret@imap.biobuddi.es')
     with caplog.at_level(INFO):
         email_reports(AUTHENTICATED_SPAM)
-    assert 'No submission:// URL; skipped Salesforce Marketing Cloud' in caplog.text
+    assert 'No submit:// URL; skipped Salesforce Marketing Cloud' in caplog.text
 
 
 def test_email_reports_unknown_platform(

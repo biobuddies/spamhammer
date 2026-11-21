@@ -88,7 +88,7 @@ def compose_report(sender: str, platform: Platform, spam: bytes) -> MIMEMultipar
 
 
 def email_reports(spam: bytes) -> None:
-    """Email each platform that sent spam an abuse report, via the submission:// URL."""
+    """Email each platform that sent spam an abuse report, via the submit:// URL."""
     if not (urls := read_email_urls()):
         return
     imap, *others = urls
@@ -97,7 +97,7 @@ def email_reports(spam: bytes) -> None:
         return
     if not (submission := next(iter(others), None)):
         logger.info(
-            'No submission:// URL; skipped %s', ', '.join(platform.name for platform in platforms)
+            'No submit:// URL; skipped %s', ', '.join(platform.name for platform in platforms)
         )
         return
     credentials = submission if submission.username else imap

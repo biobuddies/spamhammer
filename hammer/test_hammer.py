@@ -208,5 +208,5 @@ def test_fetch_spam_rejects_imap_failures(operation: str) -> None:
 
 
 def test_read_email_urls_accepts_submission(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://a:b@c, submission://d')
-    assert [url.scheme for url in read_email_urls()] == ['imaps', 'submission']
+    monkeypatch.setenv('SPAMHAMMER_EMAIL_URLS', 'imaps://a:b@c, submit://d')
+    assert [url.scheme for url in read_email_urls()] == ['imaps', 'submit']
