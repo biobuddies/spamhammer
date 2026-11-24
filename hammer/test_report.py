@@ -111,7 +111,9 @@ def test_report_sweeps_regardless_of_result(
             call_command('report', 'contact@news.unchartedvalues.com')
     else:
         call_command('report', 'contact@news.unchartedvalues.com')
-    cleanup.assert_awaited_once_with('contact@news.unchartedvalues.com', dry_run=False)
+    cleanup.assert_awaited_once_with(
+        'contact@news.unchartedvalues.com', dry_run=False, folder='Spam'
+    )
     assert loops[0] is loops[1]
 
 
@@ -126,7 +128,9 @@ def test_report_sweeps_after_smtp_failure(monkeypatch: MonkeyPatch) -> None:
     with raises(OSError, match='SMTP failed'):
         call_command('report', 'contact@news.unchartedvalues.com')
     send.assert_called_once_with(b'email')
-    cleanup.assert_awaited_once_with('contact@news.unchartedvalues.com', dry_run=False)
+    cleanup.assert_awaited_once_with(
+        'contact@news.unchartedvalues.com', dry_run=False, folder='Spam'
+    )
 
 
 @mark.parametrize(

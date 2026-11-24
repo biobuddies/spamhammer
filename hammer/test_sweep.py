@@ -48,11 +48,14 @@ def make_imap(domain: str = 'news.unchartedvalues.com') -> AsyncMock:
 @mark.parametrize('dry_run', (True, False))
 def test_sweep_scope(domain: str, sequence: str, count: int, dry_run: bool) -> None:
     imap = make_imap(domain)
-    assert run(unwrap(sweep)(imap, f'contact@{domain}', dry_run=dry_run)).total() == count
+    assert (
+        run(unwrap(sweep)(imap, f'contact@{domain}', dry_run=dry_run, folder='Trash')).total()
+        == count
+    )
     assert imap.uid.await_count == (1 if dry_run else 2)
-    imap.status.assert_awaited_once_with('"Spam"', '(UIDVALIDITY)')
+    imap.status.assert_awaited_once_with('"Trash"', '(UIDVALIDITY)')
     if not dry_run:
-        assert imap.uid.await_args_list[1].args == ('MOVE', sequence, '"Spam"')
+        assert imap.uid.await_args_list[1].args == ('MOVE', sequence, '"Trash"')
 
 
 @mark.parametrize(
@@ -67,7 +70,7 @@ def test_sweep_failure(failure: str, dry_run: bool) -> None:
         responses[1] = CommandError('UID MOVE NO')
     imap.uid.side_effect = responses
     with raises(CommandError):
-        run(unwrap(sweep)(imap, 'contact@news.unchartedvalues.com', dry_run=dry_run))
+        run(unwrap(sweep)(imap, 'contact@news.unchartedvalues.com', dry_run=dry_run, folder='Spam'))
     assert imap.uid.await_count == (2 if failure == 'move' else 0)
 
 
@@ -88,7 +91,10 @@ def test_sweep_requires_move_after_login(monkeypatch: MonkeyPatch, dry_run: bool
 def test_sweep_empty() -> None:
     imap = make_imap()
     imap.uid_search.return_value = Response('OK', [b''])
-    assert run(unwrap(sweep)(imap, 'contact@news.unchartedvalues.com', dry_run=False)) == Counter()
+    assert (
+        run(unwrap(sweep)(imap, 'contact@news.unchartedvalues.com', dry_run=False, folder='Spam'))
+        == Counter()
+    )
     imap.uid.assert_not_awaited()
 
 
@@ -100,9 +106,10 @@ def test_sweep_missing_uid() -> None:
         )
 
 
+@mark.parametrize('folder', ('Spam', 'Trash'))
 @mark.parametrize('dry_run', (True, False))
 @mark.parametrize('domain', ('thealphapaths.com', 'news.meadowbrookupdates.com'))
-def test_sweep_output(capsys: CaptureFixture[str], domain: str, dry_run: bool) -> None:
+def test_sweep_output(capsys: CaptureFixture[str], domain: str, dry_run: bool, folder: str) -> None:
     with patch(
         'hammer.management.commands.sweep.sweep',
         new=AsyncMock(
@@ -113,12 +120,12 @@ def test_sweep_output(capsys: CaptureFixture[str], domain: str, dry_run: bool) -
             )
         ),
     ):
-        call_command('sweep', f'Sender@{domain}', dry_run=dry_run)
+        call_command('sweep', f'Sender@{domain}', f'--folder={folder}', dry_run=dry_run)
     scope = domain if domain.count('.') >= 2 else f'Sender@{domain}'
     suffix = ': Sender@, Other@' if domain.count('.') >= 2 else ''
     assert (
         capsys.readouterr().out
-        == f'{"Would move" if dry_run else "Moved"} 3 messages from {scope} to Spam{suffix}\n'
+        == f'{"Would move" if dry_run else "Moved"} 3 messages from {scope} to {folder}{suffix}\n'
     )
 
 

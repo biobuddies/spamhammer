@@ -121,6 +121,6 @@ class Command(BaseCommand):
             if message:
                 await to_thread(send_salesforce_report, message)
         except Exception:
-            print(await sweep_summary(sender, dry_run=False))
+            print(await sweep_summary(sender, dry_run=False, folder='Spam'))
             raise
-        print(await sweep_summary(sender, dry_run=False))
+        print(await sweep_summary(sender, dry_run=False, folder='Spam'))
