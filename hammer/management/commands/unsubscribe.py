@@ -51,12 +51,12 @@ class Command(BaseCommand):
         run(self.handle_async(email, dry_run=dry_run))
 
     async def handle_async(self, email: str, *, dry_run: bool) -> None:
-        """Unsubscribe and sweep matching mail in one event loop."""
+        """Unsubscribe and sweep matching mail to Trash in one event loop."""
         sender, _, subject = email.partition(' ')
         try:
             if result := await unsubscribe(sender, subject, dry_run):
                 print(result)
         except Exception:
-            print(await sweep_summary(sender, dry_run=dry_run))
+            print(await sweep_summary(sender, dry_run=dry_run, folder='Trash'))
             raise
-        print(await sweep_summary(sender, dry_run=dry_run))
+        print(await sweep_summary(sender, dry_run=dry_run, folder='Trash'))

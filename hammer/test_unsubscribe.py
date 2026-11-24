@@ -110,7 +110,7 @@ def test_unsubscribe_dry_run(capsys: CaptureFixture[str]) -> None:
     assert capsys.readouterr().out == (
         'Would request unsubscribe for contact@news.thealphapaths.com'
         ' via click.news.thealphapaths.com\n'
-        'Would move 0 messages from news.thealphapaths.com to Spam\n'
+        'Would move 0 messages from news.thealphapaths.com to Trash\n'
     )
 
 
@@ -134,4 +134,6 @@ def test_unsubscribe_sweeps_regardless_of_result(accepted: bool) -> None:
         else:
             with raises(CommandError, match='Failed'):
                 call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels')
-    cleanup.assert_awaited_once_with('contact@news.thealphapaths.com', dry_run=False)
+    cleanup.assert_awaited_once_with(
+        'contact@news.thealphapaths.com', dry_run=False, folder='Trash'
+    )

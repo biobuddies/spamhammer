@@ -1,4 +1,4 @@
-"""Move matching inbox messages to Spam."""
+"""Move matching inbox messages to a folder."""
 
 from asyncio import run
 from collections import Counter
@@ -11,8 +11,6 @@ from aioimaplib import IMAP4_SSL
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from hammer.hammer import imap_session
-
-SPAM_FOLDER = 'Spam'
 
 
 def cleanup_scope(sender: str) -> str:
@@ -50,10 +48,10 @@ def match_messages(lines: Sequence[bytes | bytearray], scope: str) -> dict[str, 
 
 
 @imap_session(off=Counter(), requires=('MOVE',))
-async def sweep(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
+async def sweep(imap: IMAP4_SSL, sender: str, *, dry_run: bool, folder: str) -> Counter[str]:
     """Check exact From addresses, then UID MOVE only the matched messages."""
     scope = cleanup_scope(sender)
-    quoted_folder = f'"{SPAM_FOLDER}"'
+    quoted_folder = f'"{folder}"'
     await imap.status(quoted_folder, '(UIDVALIDITY)')
     await imap.select('INBOX')
     value = scope if '@' in scope else '@' + scope
@@ -74,17 +72,17 @@ async def sweep(imap: IMAP4_SSL, sender: str, *, dry_run: bool) -> Counter[str]:
     return counts
 
 
-async def sweep_summary(sender: str, *, dry_run: bool) -> str:
+async def sweep_summary(sender: str, *, dry_run: bool, folder: str) -> str:
     """Sweep or preview matching mail and format the result for command output."""
     scope = cleanup_scope(sender)
-    counts = await sweep(sender, dry_run=dry_run) or Counter()
+    counts = await sweep(sender, dry_run=dry_run, folder=folder) or Counter()
     addresses = ', '.join(
         f'{address.rpartition("@")[0]}@' for address, _count in counts.most_common()
     )
     suffix = f': {addresses}' if '@' not in scope and counts else ''
     return (
         f'{"Would move" if dry_run else "Moved"} {counts.total()} messages '
-        f'from {scope} to {SPAM_FOLDER}{suffix}'
+        f'from {scope} to {folder}{suffix}'
     )
 
 
@@ -95,7 +93,10 @@ class Command(BaseCommand):
         """Take a sender and infer cleanup scope from the domain."""
         parser.add_argument('sender')
         parser.add_argument('--dry-run', action='store_true')
+        parser.add_argument('--folder', default='Spam', help='must already exist')
 
-    def handle(self, *_args: object, sender: str, dry_run: bool, **_options: object) -> None:
+    def handle(
+        self, *_args: object, sender: str, dry_run: bool, folder: str, **_options: object
+    ) -> None:
         """Print the affected message count and sender breakdown."""
-        print(run(sweep_summary(sender, dry_run=dry_run)))
+        print(run(sweep_summary(sender, dry_run=dry_run, folder=folder)))
