@@ -1,0 +1,294 @@
+Return-Path: <bounces+28450532-8b39-busybuddy=biobuddi.es@em7523.spoton.marketing>
+Received: from lmtpproxyd ([10.17.8.17])
+	 by imap.biobuddi.es (Cyrus 3.6.6.4-1.102.el9.biobuddi_16 Fedora) with LMTPSA
+	 (version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256 verify=YES);
+	 Tue, 24 Nov 2026 02:58:25 +0100
+X-Cyrus-Session-Id: cyrus-imapd-1795485505-1351600-4-8975110034405772604
+X-Sieve: CMU Sieve 3.0
+Received: from biobuddi.es ([10.17.8.252])
+	 by imap.biobuddi.es (Cyrus 3.6.6.4-1.102.el9.biobuddi_16 Fedora) with LMTPA;
+	 Tue, 24 Nov 2026 02:58:25 +0100
+X-Cyrus-Session-Id: cyrus-imapd-1795485505-3150359-1-13867266843205317821
+X-Virus-Scanned: amavis at biobuddi.es
+X-Spam-Flag: NO
+X-Spam-Score: -2.198
+X-Spam-Level:
+X-Spam-Status: No, score=-2.198 tagged_above=-999 required=5
+ tests=[BAYES_00=-1.9, DKIM_SIGNED=0.1, DKIM_VALID=-0.1, DKIM_VALID_AU=-0.1,
+ DKIM_VALID_EF=-0.1, HTML_IMAGE_RATIO_02=0.001, HTML_MESSAGE=0.001,
+ SPF_HELO_NONE=0.001, SPF_PASS=-0.001, URIBL_AMI_WHITE=-0.1]
+ autolearn=no autolearn_force=no
+Authentication-Results: biobuddi.es (amavis); dkim=pass (2048-bit key)
+ header.d=spoton.marketing
+Received-SPF: Pass identity=mailfrom; client-ip=134.128.68.241; helo=o19.ptr9886.spoton.marketing; envelope-from=bounces+28450532-8b39-busybuddy=biobuddi.es@em7523.spoton.marketing;
+Received: from o19.ptr9886.spoton.marketing (o19.ptr9886.spoton.marketing [134.128.68.241])
+	by mx.biobuddi.es (Postfix) with ESMTPS id 0000000
+	for <busybuddy@biobuddi.es>; Tue, 24 Nov 2026 01:58:22 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=spoton.marketing;
+	h=content-type:date:from:mime-version:subject:list-unsubscribe:
+	list-unsubscribe-post:to:cc:content-type:date:from:subject:to;
+	s=s1; t=1795485500;
+	bh=7dVEayQR9l3ECK59+ZzmKkONPjmnKWx6N/KVUW15NOs=;
+	b=k5XE5nEWbht/+X3IulxIJ0/qa4P0squErtdphTbZ8V6nca5aOBf+o6+q3YmVC57kvGg9
+	AjjJ/eI8XjqFF51/3uP7La7vhuAQur5sIrT+LTnjYlrWoAc4YA6bPbkltJVk8YfWne+zn3
+	Xny+GDCY6e0pl29KvykIgiah2F/211lD6eijXoNROeOo24YDI42rTrOBySV8SvXVrNAVH3
+	vpKsFZc6rRq8nhMm2X8HxnQuZZVYBM5yXLb0s8SDaWgFkK/jm2oDFazKY9mFh9AMo8aDBK
+	w0OTOByQTKb1wMpiZ+RRGHbeSjBqOY+YYVaxDIQrj77bD4ergTyJuapw0LMYi8yQ==
+Received: by recvd-77c44d8746-kkjlx with SMTP id recvd-77c44d8746-kkjlx-1-6B04EF32-1B
+	2026-11-24 01:58:10.631488485 +0000 UTC m=+1130364.179724264
+Received: from Mjg0NTA1MzI (unknown)
+	by geopod-ismtpd-66 (SG) with HTTP
+	id 7Ik8KlAdQIWpfEkxskFlCQ
+	Tue, 24 Nov 2026 01:58:10.612 +0000 (UTC)
+Content-Type: multipart/alternative; boundary=8b0ec95a41d50205413f73650c0461899067607d7395625d9ef06b7f75bc
+Date: Tue, 24 Nov 2026 01:58:20 +0000 (UTC)
+From: Goorsha <campaigns@spoton.marketing>
+Mime-Version: 1.0
+Message-ID: <7Ik8KlAdQIWpfEkxskFlCQ@geopod-ismtpd-66>
+Subject: We miss you at Goorsha - your Sambusa's on us
+Feedback-ID: c221792:68e41c4ad251bfb2e06cce2a:campaign:spotonmarketing
+List-Unsubscribe:
+ <https://optout.spoton.com/?customer=REDACTED-RECIPIENT-TOKEN&merchant=NjhlNDFjNGFkMjUxYmZiMmUwNmNjZTJh&sig=REDACTED-RECIPIENT-TOKEN>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+X-SG-EID: REDACTED-RECIPIENT-TOKEN
+X-SG-ID: REDACTED-RECIPIENT-TOKEN
+To: undefined undefined <busybuddy@biobuddi.es>
+X-Entity-ID: REDACTED-RECIPIENT-TOKEN
+
+--8b0ec95a41d50205413f73650c0461899067607d7395625d9ef06b7f75bc
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Mime-Version: 1.0
+
+|  =20
+--- =20
+**It's National Donut Day!** =20
+--- =20
+|=20
+
+# $5 OFF
+
+Orders over $5 5:00 PM to 9:00 PM  Valid Tuesday, Thursday November 24 4:00=
+ PM - November 30, 2026 11:59 PM  XXXX-XXXX Scan this code at checkout to r=
+edeem. One-time redemption only. Offer valid based on dates/times listed. |=
+  =20
+---|---|--- =20
+|  [Order online](Goorshadurham.com) |  =20
+Goorsha =20
+--- =20
+910 W Main St, Durham, NC 27701, US =20
+[+19195884660](tel:+19195884660) =20
+[goorshadurham@gmail.com](mailto:goorshadurham@gmail.com) =20
+To unsubscribe from receiving emails from Goorsha  [click here](https://opt=
+out.spoton.com/?customer=3DREDACTED-RECIPIENT-TOKEN&merchant=3DNjhl=
+NDFjNGFkMjUxYmZiMmUwNmNjZTJh&sig=3DREDACTED-RECIPIENT-TOKEN) =20
+[ ](https://www.spoton.com/)
+
+--8b0ec95a41d50205413f73650c0461899067607d7395625d9ef06b7f75bc
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html; charset=us-ascii
+Mime-Version: 1.0
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset=3D"utf-8">
+        <meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-sc=
+ale=3D1">
+       =20
+           =20
+               =20
+            <script type=3D"application/ld+json">
+            [
+               =20
+                {
+                    "@context": "http://schema.org/",
+                    "@type": "EmailMessage",
+                    "subjectLine": "We miss you at Goorsha - your Sambusa's=
+ on us"
+                },
+                {
+                    "@context": "http://schema.org/",
+                    "@type": "DiscountOffer",
+                    "description": "5.0$ off",
+                    "discountCode": "XXXX-XXXX",
+                    "availabilityStarts": "2026-11-24T16:00:00-05:00",
+                    "availabilityEnds": "2026-11-30T23:59:59.999000-05:00"
+                }
+            ]
+            </script>
+       =20
+           =20
+       =20
+    </head>
+    <body style=3D"font-family:Lato, sans-serif;margin:0;width:100%;box-siz=
+ing:border-box;padding:0;">
+        <table align=3D"center" width=3D600 valign=3D"top" cellpadding=3D"0=
+" cellspacing=3D"0">
+            <tbody>
+                <tr>
+                    <td>
+                       =20
+<table align=3D"center" cellpadding=3D"0" cellspacing=3D"0">
+    <tr>
+        <td>
+            <img style=3D"background-color:transparent;object-fit:cover;hei=
+ght:900px;width:600px;display:block;" src=3D"https://images.unsplash.com/ph=
+oto-1618411640018-972400a01458?crop=3Dentropy&cs=3Dtinysrgb&fit=3Dmax&fm=3D=
+jpg&ixid=3DMnwxNTY1MzZ8MHwxfHNlYXJjaHwxMXx8ZG9udXR8ZW58MXx8fHwxNjQ5Nzk3MTg3=
+&ixlib=3Drb-1.2.1&q=3D80&w=3D1080" alt=3D"" width=3D"600" height=3D"900" />
+        </td>
+    </tr>
+</table>
+
+
+<table style=3D"width:100%;word-break:break-word;padding:16px;" cellpadding=
+=3D"0" cellspacing=3D"0">
+    <tr>
+        <td>
+            <p style=3D"text-align: center"><span style=3D"color: rgb(10, 1=
+0, 11); font-family: Georgia; background-color: inherit; font-size: 32px; f=
+ont-weight: 900"><strong>It's National Donut Day!</strong></span></p>
+        </td>
+    </tr>
+</table>
+
+
+<table align=3D"center" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" ro=
+le=3D"presentation" style=3D"font-family:'Poppins', sans-serif;width:600px;=
+">
+    <tr>
+        <td style=3D"padding-left:32px;"></td>
+        <td align=3D"center" style=3D"background-color:#ad8155;color:#0A0A0=
+B;padding:16px;">
+           =20
+            <h1 style=3D"font-size:50px;margin-bottom:0;font-weight:600;">$=
+5 OFF</h1>
+           =20
+           =20
+           =20
+            <p style=3D"font-size:16px;min-width:286px;display:inherit;bord=
+er-bottom:1px solid;border-color:white;padding-bottom:16px;text-align:cente=
+r;">Orders over $5</p>
+           =20
+           =20
+            <div>
+               =20
+                <p style=3D"font-size:16px;font-weight:500;line-height:24px=
+;margin-bottom:0;" > 5:00 PM to 9:00 PM
+</p>
+               =20
+               =20
+                <p style=3D"font-size:16px;font-weight:500;line-height:24px=
+;margin:0;" >Valid  Tuesday, Thursday</p>
+               =20
+            </div>
+            <p style=3D"font-size:14px;">
+                November 24 4:00 PM - November 30, 2026 11:59 PM
+            </p>
+           =20
+            <img src=3D"https://l.spoton.com/api/v1/qr?d=3Ddeal_source%3DMT=
+%3Bdeal_type%3Dunique%3Bdeal_code%3DXXXX-XXXX&s=3D300" alt=3D"QR code" styl=
+e=3D"display:block;height:286px;width:286px;"/>
+           =20
+           =20
+            <p style=3D"border:1px dashed rgb(255, 255, 255);display:inline=
+-block;padding:9px 0;width:286px;font-size:16px;">XXXX-XXXX</p>
+           =20
+           =20
+            <p style=3D"margin-top:8px;font-size:12px;font-family:sans-seri=
+f;">Scan this code at checkout to redeem. One-time redemption only. Offer v=
+alid based on dates/times listed.</p>
+           =20
+        </td>
+        <td style=3D"padding-right:32px;"></td>
+    </tr>
+   =20
+    <tr>
+        <td style=3D"padding-left:32px;"></td>
+        <td style=3D"padding-top:8px;">
+            <a href=3D"Goorshadurham.com" target=3D"_blank" style=3D"width:=
+100%;padding:14px 0;background-color:#be9a77;color:#0A0A0B;display:block;te=
+xt-decoration:none;text-align:center;font-size:16px;font-weight:600;border-=
+radius:4px;">Order online</a>
+        </td>
+        <td style=3D"padding-right:32px;"></td>
+    </tr>
+   =20
+</table>
+
+
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+   =20
+<table style=3D"width:600px;background-color:#f7f7fa;padding:35px;align:cen=
+ter" align=3D"center" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" vali=
+gn=3D"top" role=3D"presentation">
+    <tbody>
+        <tr>
+            <td align=3D"center">
+                <span style=3D"font-family:sans-serif;font-size:18px;line-h=
+eight:14px;color:#47516E">Goorsha</span>
+            </td>
+        </tr>
+        <tr>
+            <td align=3D"center" style=3D"padding:15px 0px 0px 0px">
+                <span style=3D"font-family:sans-serif;font-size:12px;font-w=
+eight:400;line-height:20px;color:#47516E">910 W Main St, Durham, NC 27701, =
+US</span>
+            </td>
+        </tr>
+        <tr>
+            <td align=3D"center" style=3D"padding:15px 0px 0px 0px">
+                <a href=3D"tel:+19195884660" target=3D"_blank" style=3D"col=
+or:#47516E;text-decoration:underline;font-size:12px;font-weight:400;line-he=
+ight:20px">+19195884660</a>
+            </td>
+        </tr>
+        <tr>
+            <td align=3D"center" style=3D"padding:15px 0px 0px 0px">
+                <a href=3D"mailto:goorshadurham@gmail.com" target=3D"_blank=
+" style=3D"color:#47516E;text-decoration:underline;font-size:12px;font-weig=
+ht:400;line-height:20px">goorshadurham@gmail.com</a>
+            </td>
+        </tr>
+        <tr>
+            <td align=3D"center" style=3D"padding:15px 0px 0px 0px">
+               =20
+                <span style=3D"font-family:sans-serif;font-size:12px;line-h=
+eight:14px;color:#47516E">To unsubscribe from receiving emails from Goorsha=
+ </span>
+                <a clicktracking=3D"off" href=3D"https://optout.spoton.com/=
+?customer=3DREDACTED-RECIPIENT-TOKEN&merchant=3DNjhlNDFjNGFkMjUxYmZ=
+iMmUwNmNjZTJh&sig=3DREDACTED-RECIPIENT-TOKEN" target=3D"_blank" style=3D"color:#47516E;text-decoration:underli=
+ne;font-size:12px;font-weight:400;line-height:20px">click here</a>
+               =20
+            </td>
+        </tr>
+        <tr>
+            <td align=3D"center" style=3D"padding:15px 0px 0px 0px">
+                <a href=3D"http://url150.spoton.marketing/ls/click?upn=3DREDACTED-RECIPIENT-TOKEN" target=
+=3D"_blank" style=3D"text-decoration:underline">
+                    <img alt=3D"SpotOn Inc. Logo" src=3D"https://spoton-pro=
+d-campaign-service.s3.amazonaws.com/spoton.png" width=3D"80" height=3D"24" =
+style=3D"display:inline-block;outline:none;border:none;text-decoration:none=
+;width:60px;padding:5px 0px 10px 0px;height:18px">
+                </a>
+            </td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+    </tbody>
+</table>
+
+<img src=3D"http://url150.spoton.marketing/wf/open?upn=3DREDACTED-RECIPIENT-TOKEN" alt=3D"" width=3D"=
+1" height=3D"1" border=3D"0" style=3D"height:1px !important;width:1px !impo=
+rtant;border-width:0 !important;margin-top:0 !important;margin-bottom:0 !im=
+portant;margin-right:0 !important;margin-left:0 !important;padding-top:0 !i=
+mportant;padding-bottom:0 !important;padding-right:0 !important;padding-lef=
+t:0 !important;"/></body>
+</html>
+--8b0ec95a41d50205413f73650c0461899067607d7395625d9ef06b7f75bc--
