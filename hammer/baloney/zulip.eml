@@ -1,0 +1,191 @@
+Return-Path: <010001a20a777d85-8a4320a5-33d9-4945-ae92-8af42bb10e53-000000@bounces.zulip.com>
+Received: from lmtpproxyd ([10.17.8.17])
+	 by imap.biobuddi.es (Cyrus 3.6.6.4-1.102.el9.biobuddi_16 Fedora) with LMTPSA
+	 (version=TLSv1.3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256 verify=YES);
+	 Mon, 23 Nov 2026 23:12:17 +0100
+X-Cyrus-Session-Id: cyrus-imapd-1795471937-1350646-1-17850526385908153236
+X-Sieve: CMU Sieve 3.0
+Received: from biobuddi.es ([10.17.8.252])
+	 by imap.biobuddi.es (Cyrus 3.6.6.4-1.102.el9.biobuddi_16 Fedora) with LMTPA;
+	 Mon, 23 Nov 2026 23:12:17 +0100
+X-Cyrus-Session-Id: cyrus-imapd-1795471937-3149577-1-13124342157934954329
+X-Virus-Scanned: amavis at biobuddi.es
+X-Spam-Flag: NO
+X-Spam-Score: -2.197
+X-Spam-Level:
+X-Spam-Status: No, score=-2.197 tagged_above=-999 required=5
+ tests=[BAYES_00=-1.9, DKIM_SIGNED=0.1, DKIM_VALID=-0.1, DKIM_VALID_AU=-0.1,
+ DKIM_VALID_EF=-0.1, HTML_MESSAGE=0.001, RCVD_IN_DNSWL_NONE=-0.0001,
+ RCVD_IN_MSPIKE_H5=0.001, RCVD_IN_MSPIKE_WL=0.001, SPF_HELO_NONE=0.001,
+ SPF_PASS=-0.001, URIBL_AMI_WHITE=-0.1] autolearn=no autolearn_force=no
+Authentication-Results: biobuddi.es (amavis); dkim=pass (1024-bit key)
+ header.d=zulip.com header.b="PP7HdT7Z"; dkim=pass (1024-bit key)
+ header.d=amazonses.com header.b="F3LqUc5L"
+Received-SPF: Pass identity=mailfrom; client-ip=54.240.32.207; helo=a32-207.smtp-out.amazonses.com; envelope-from=010001a20a777d85-8a4320a5-33d9-4945-ae92-8af42bb10e53-000000@bounces.zulip.com;
+Received: from a32-207.smtp-out.amazonses.com (a32-207.smtp-out.amazonses.com [54.240.32.207])
+	by mx.biobuddi.es (Postfix) with ESMTPS id 0000000
+	for <busybuddy@biobuddi.es>; Mon, 23 Nov 2026 22:12:14 +0000 (UTC)
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=3hoscmgjlnsgqebqbb3qw2atkyvqrzap; d=zulip.com; t=1795471932;
+	h=Content-Type:MIME-Version:Subject:From:To:Reply-To:Message-ID:Date:List-Id:List-Unsubscribe:List-Unsubscribe-Post;
+	bh=59mh44TV0bSvLIwzo2YMlpw8icrrsu+HPqiIidF/guY=;
+	b=PP7HdT7ZTeIW17WqLtfVQORjb5pr+ZwhRy895i4gh1QdlA8QfthHQt3d1BKEm1sB
+	0N1NCC+SmrPlWwPF2FTD4Qedp9aH+G0NWQXdExijkZodKEjt6YZ8f2Qc6O75r/I2fXl
+	gL4WO3wEORSTCYHqaOA1jq1iL6LXL12iNKqA5RAw=
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=224i4yxa5dv7c2xz3womw6peuasteono; d=amazonses.com; t=1795471932;
+	h=Content-Type:MIME-Version:Subject:From:To:Reply-To:Message-ID:Date:List-Id:List-Unsubscribe:List-Unsubscribe-Post:Feedback-ID;
+	bh=59mh44TV0bSvLIwzo2YMlpw8icrrsu+HPqiIidF/guY=;
+	b=F3LqUc5LdKFnj/JXMEaFNqa7QOWrN4YdQXAEHClp5LwgCHSCgoqukvdqv3juuMUT
+	tjil6pes58BktNVaE7O8dxrD1y6cUoA4eE3JL7kpfghljFM80qwnOUqZe30q4ar6YA2
+	+e9+zJnO+9LcZdrUJ9GBK6h8apve1QBB06SnHqHI=
+Content-Type: multipart/alternative;
+ boundary="===============5498761637063289593=="
+MIME-Version: 1.0
+Subject: Zulip newsletter: Zulip 13, Foundation updates, and more
+From: "\"Zulip Team\"" <noreply@zulip.com>
+To: Busy Buddy <busybuddy@biobuddi.es>
+Reply-To: feedback@zulip.com
+Message-ID: <010001a20a777d85-8a4320a5-33d9-4945-ae92-8af42bb10e53-000000@email.amazonses.com>
+X-Auto-Response-Suppress: All
+Date: Mon, 23 Nov 2026 22:12:12 +0000
+List-Id: biobuddies <biobuddies.zulipchat.com>
+List-Unsubscribe: 
+ <https://biobuddies.zulipchat.com/accounts/unsubscribe/marketing/REDACTED-RECIPIENT-TOKEN>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+Feedback-ID: ::1.us-east-1.2NWVV3n50Zvysv1IFMzvjHkXJK/UUdtidu+JlWOamHA=:AmazonSES
+X-SES-Outgoing: 2026.11.23-54.240.32.207
+
+--===============5498761637063289593==
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+Dear Zulip community,
+
+We are excited to share what the Zulip team has been working on during the last 6 months!
+
+### Releases: Zulip Server 13
+
+Zulip Server 13 was released on November 12th. This self-hosted release brings features already enjoyed by Zulip Cloud users to our self-hosted community, including search and navigation enhancements, performance optimizations, and visual improvements across the app. Check out the [blog post](https://blog.zulip.com/2026/11/12/zulip-13-0-released/) or the recent [Zulip Update announcement](https://zulip.com/help/configure-automated-notices) in your organization for all the details.
+
+This marks the first major release of the Zulip server and web application since the establishment of the Zulip Foundation, and was a major milestone for the Kandra Labs team: the first major server release without Tim heading up the process!
+
+Our [mobile team frequently releases](https://chat.zulip.org/#narrow/channel/1-announce/topic/mobile.20releases/near/2487730) features and improvements to the mobile apps; this season, we have focused on making them faster and more reliable, alongside feature work. If you appreciate the Zulip mobile app, we would appreciate a review from you in the app store of your choice!
+
+### Zulip Foundation and hiring updates
+
+Our interim president, Kim, recently shared [news from the non-profit Zulip Foundation](https://blog.zulip.com/2026/11/03/zulip-foundation-updates/) and updates about the Kandra Labs team’s focus. With a full Board of Directors and Advisory Board at the Foundation, the team at Kandra Labs having settled into new responsibilities, and the hiring process for all open roles being in the final stages, we are excited about moving forward with an ambitious development roadmap for 2027 and beyond.
+
+### Google Summer of Code 2026 in review
+
+We recently completed our 11th consecutive year of mentorship with Google Summer of Code! Apoorva (Zulip GSoC alum and now Kandra Labs engineer) highlighted the contributions and experiences of [this summer’s Zulip Google Summer of Code cohort](https://blog.zulip.com/2026/11/06/google-summer-of-code-2026/) in a blog post.
+
+### Feature highlight: View linked conversations
+
+As conversations grow in depth and context in your organization, you can now see how they connect by [viewing links between conversations](https://zulip.com/help/link-to-a-message-or-conversation#view-links-to-and-from-a-conversation).
+
+![screenshot of view links feature](https://blog.zulip.com/_astro/view-links-feature.C6zWEKFz_Z6KBgg.webp).
+
+### Closing thoughts
+
+We’ve been taking a collaborative approach to public communication about the project lately, as you can see at [blog.zulip.com](https://blog.zulip.com/_astro/view-links-feature.C6zWEKFz_Z6KBgg.webp). You can [sign up](https://groups.google.com/a/zulip.com/g/zulip-blog-announce/about) to be notified when we post there. We plan to share more about how we work and what we’re working on, and introduce our new leadership hires there soon!
+
+If you appreciate Zulip, please recommend it to someone you know, for work or any other collaborative endeavor. If they say that Zulip won’t work for them, [let us know why](https://zulip.readthedocs.io/en/latest/contributing/suggesting-features.html#evaluation-and-onboarding-feedback)! Your feedback is a vital part of how we design and prioritize improvements to Zulip. We would love to hear what features you dream of using in Zulip as we plan for the 14.x release cycle.
+
+And as always, consider [supporting the Zulip project](https://zulip.com/help/support-zulip-project) in any way that works for you.
+
+-Emily Sutherlin, for the Zulip team
+
+---
+Manage email preferences:
+
+https://biobuddies.zulipchat.com/#settings/notifications
+
+Unsubscribe from marketing emails:
+
+https://biobuddies.zulipchat.com/accounts/unsubscribe/marketing/REDACTED-RECIPIENT-TOKEN
+
+--===============5498761637063289593==
+Content-Type: text/html; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 8bit
+
+<!DOCTYPE html><html lang="en"><head>
+        <meta name="viewport" content="width=device-width">
+        <meta charset="UTF-8">
+        <title>Zulip</title>
+        
+    </head>
+    <body class="default-email-font-settings" style="font-family: sans-serif;font-size: 14px;line-height: 1.4;margin: 0;padding: 0;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;">
+        <table class="body layout" border="0" cellpadding="0" cellspacing="0" style="background-color: #f5f9f8;border-collapse: separate;mso-table-lspace: 0;mso-table-rspace: 0;width: 100%;">
+            <tbody><tr>
+                <td style="font-family: sans-serif;font-size: 14px;vertical-align: top;">&nbsp;</td>
+                <td class="container wide-container" style="display: block;margin: 0 auto !important;padding: 10px;font-family: sans-serif;font-size: 14px;vertical-align: top;max-width: 700px;">
+                    <div class="content wide-content" style="box-sizing: border-box;display: block;margin: 20px auto 0;padding: 10px;max-width: 780px;">
+                        <a class="illustration" href="#" style="pointer-events: none;cursor: default !important;z-index: 100;color: #5f5ec7;text-decoration: underline;">
+                            
+<img alt="" src="https://static.zulipchat.com/static/images/emails/email_logo.png" style="border: none;-ms-interpolation-mode: bicubic;max-width: 100%;vertical-align: bottom;">
+
+                        </a>
+                        <span class="preheader" style="color: transparent;display: none;height: 0;max-height: 0;max-width: 0;opacity: 0;overflow: hidden;mso-hide: all;visibility: hidden;width: 0;">
+                            
+                        </span>
+                        <table class="main layout" style="background-color: #fff;border-radius: 3px;border-collapse: separate;mso-table-lspace: 0;mso-table-rspace: 0;width: 100%;">
+                            <tbody><tr>
+                                <td class="wrapper" style="box-sizing: border-box;padding: 0 20px 20px;font-family: sans-serif;font-size: 14px;vertical-align: top;">
+                                    <table class="layout" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate;mso-table-lspace: 0;mso-table-rspace: 0;width: 100%;">
+                                        <tbody><tr>
+                                            <td class="custom-email-content" style="font-family: sans-serif;font-size: 14px;vertical-align: top;">
+                                                
+
+
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">Dear Zulip community,</p>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">We are excited to share what the Zulip team has been working on during the last 6 months!</p>
+<h3 id="releases-zulip-server-13">Releases: Zulip Server 13</h3>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">Zulip Server 13 was released on November 12th. This self-hosted release brings features already enjoyed by Zulip Cloud users to our self-hosted community, including search and navigation enhancements, performance optimizations, and visual improvements across the app. Check out the <a href="https://blog.zulip.com/2026/11/12/zulip-13-0-released/?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=13_0_newsletter" style="color: #5f5ec7;text-decoration: underline;">blog post</a> or the recent <a href="https://zulip.com/help/configure-automated-notices?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=13_0_newsletter" style="color: #5f5ec7;text-decoration: underline;">Zulip Update announcement</a> in your organization for all the details.</p>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">This marks the first major release of the Zulip server and web application since the establishment of the Zulip Foundation, and was a major milestone for the Kandra Labs team: the first major server release without Tim heading up the process!</p>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">Our <a href="https://chat.zulip.org/#narrow/channel/1-announce/topic/mobile.20releases/near/2487730" style="color: #5f5ec7;text-decoration: underline;">mobile team frequently releases</a> features and improvements to the mobile apps; this season, we have focused on making them faster and more reliable, alongside feature work. If you appreciate the Zulip mobile app, we would appreciate a review from you in the app store of your choice!</p>
+<h3 id="zulip-foundation-and-hiring-updates">Zulip Foundation and hiring updates</h3>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">Our interim president, Kim, recently shared <a href="https://blog.zulip.com/2026/11/03/zulip-foundation-updates/?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=13_0_newsletter" style="color: #5f5ec7;text-decoration: underline;">news from the non-profit Zulip Foundation</a> and updates about the Kandra Labs team’s focus. With a full Board of Directors and Advisory Board at the Foundation, the team at Kandra Labs having settled into new responsibilities, and the hiring process for all open roles being in the final stages, we are excited about moving forward with an ambitious development roadmap for 2027 and beyond.</p>
+<h3 id="google-summer-of-code-2026-in-review">Google Summer of Code 2026 in review</h3>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">We recently completed our 11th consecutive year of mentorship with Google Summer of Code! Apoorva (Zulip GSoC alum and now Kandra Labs engineer) highlighted the contributions and experiences of <a href="https://blog.zulip.com/2026/11/06/google-summer-of-code-2026/?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=13_0_newsletter" style="color: #5f5ec7;text-decoration: underline;">this summer’s Zulip Google Summer of Code cohort</a> in a blog post.</p>
+<h3 id="feature-highlight-view-linked-conversations">Feature highlight: View linked conversations</h3>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">As conversations grow in depth and context in your organization, you can now see how they connect by <a href="https://zulip.com/help/link-to-a-message-or-conversation?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=13_0_newsletter#view-links-to-and-from-a-conversation" style="color: #5f5ec7;text-decoration: underline;">viewing links between conversations</a>.</p>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;"><img alt="screenshot of view links feature" src="https://blog.zulip.com/_astro/view-links-feature.C6zWEKFz_Z6KBgg.webp">.</p>
+<h3 id="closing-thoughts">Closing thoughts</h3>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">We’ve been taking a collaborative approach to public communication about the project lately, as you can see at <a href="https://blog.zulip.com/_astro/view-links-feature.C6zWEKFz_Z6KBgg.webp?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=13_0_newsletter" style="color: #5f5ec7;text-decoration: underline;">blog.zulip.com</a>. You can <a href="https://groups.google.com/a/zulip.com/g/zulip-blog-announce/about" style="color: #5f5ec7;text-decoration: underline;">sign up</a> to be notified when we post there. We plan to share more about how we work and what we’re working on, and introduce our new leadership hires there soon!</p>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">If you appreciate Zulip, please recommend it to someone you know, for work or any other collaborative endeavor. If they say that Zulip won’t work for them, <a href="https://zulip.readthedocs.io/en/latest/contributing/suggesting-features.html?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=13_0_newsletter#evaluation-and-onboarding-feedback" style="color: #5f5ec7;text-decoration: underline;">let us know why</a>! Your feedback is a vital part of how we design and prioritize improvements to Zulip. We would love to hear what features you dream of using in Zulip as we plan for the 14.x release cycle.</p>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">And as always, consider <a href="https://zulip.com/help/support-zulip-project?utm_source=newsletter&amp;utm_medium=email&amp;utm_campaign=13_0_newsletter" style="color: #5f5ec7;text-decoration: underline;">supporting the Zulip project</a> in any way that works for you.</p>
+<p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;">-Emily Sutherlin, for the Zulip team</p>
+
+
+                                            </td>
+                                        </tr>
+                                    </tbody></table>
+                                    <img src="https://static.zulipchat.com/static/images/emails/footer.png" alt="Swimming fish">
+                                </td>
+                            </tr>
+                        </tbody></table>
+                        <div class="footer" style="clear: both;padding-top: 10px;text-align: center;width: 100%;margin-top: 20px;">
+                            <table class="layout" border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate;mso-table-lspace: 0;mso-table-rspace: 0;width: 100%;">
+                                <tbody><tr>
+                                    <td class="footer-content-block" style="color: #5f5ec7;text-align: center;font-family: sans-serif;font-size: 14px;vertical-align: top;">
+                                        <span class="physical-address" style="color: #5f5ec7;font-size: 12px;text-align: center;">Kandra Labs, Inc., 584 Castro St #3175, San Francisco, CA 94114, USA</span>
+                                        
+    
+        <p style="font-family: sans-serif;font-size: 14px;font-weight: normal;margin: 10px 0;"><a href="https://biobuddies.zulipchat.com/#settings/notifications" style="color: #5f5ec7;text-decoration: underline;">Manage email preferences</a> | <a href="https://biobuddies.zulipchat.com/accounts/unsubscribe/marketing/REDACTED-RECIPIENT-TOKEN" style="color: #5f5ec7;text-decoration: underline;">Unsubscribe from marketing emails</a></p>
+    
+
+                                    </td>
+                                </tr>
+                            </tbody></table>
+                        </div>
+                    </div>
+                </td>
+                <td style="font-family: sans-serif;font-size: 14px;vertical-align: top;">&nbsp;</td>
+            </tr>
+        </tbody></table>
+    
+</body></html>
+--===============5498761637063289593==--
