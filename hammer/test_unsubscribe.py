@@ -17,12 +17,12 @@ from hammer.management.commands.unsubscribe import find_unsubscribe_url, unsubsc
     'headers',
     (
         '',
-        'List-Unsubscribe: <https://click.news.thealphapaths.com/a>, <https://click.news.thealphapaths.com/b>\r\n',
-        'List-Unsubscribe: <https://user:password@click.news.thealphapaths.com/leave>\r\n',
-        'List-Unsubscribe: <https://:password@click.news.thealphapaths.com/leave>\r\n',
-        'List-Unsubscribe: <https://@click.news.thealphapaths.com/leave>\r\n',
-        'List-Unsubscribe: <https://click.news.thealphapaths.com/leave#fragment>\r\n',
-        'List-Unsubscribe: <https://click.news.thealphapaths.com/leave>\r\n' * 2,
+        'List-Unsubscribe: <https://optout.spoton.com/a>, <https://optout.spoton.com/b>\r\n',
+        'List-Unsubscribe: <https://user:password@optout.spoton.com/leave>\r\n',
+        'List-Unsubscribe: <https://:password@optout.spoton.com/leave>\r\n',
+        'List-Unsubscribe: <https://@optout.spoton.com/leave>\r\n',
+        'List-Unsubscribe: <https://optout.spoton.com/leave#fragment>\r\n',
+        'List-Unsubscribe: <https://optout.spoton.com/leave>\r\n' * 2,
     ),
 )
 def test_reject_unsupported_headers(headers: str) -> None:
@@ -32,11 +32,16 @@ def test_reject_unsupported_headers(headers: str) -> None:
         )
 
 
-SPAM = Path(__file__).parent / 'spam'
+HAMMER = Path(__file__).parent
 
 
 @mark.parametrize(
-    'path', sorted((SPAM / 'yes-one-click').glob('*.eml')), ids=lambda path: path.stem
+    'path',
+    sorted((
+        *(HAMMER / 'baloney').glob('*.eml'),
+        *(HAMMER / 'spam' / 'yes-one-click').glob('*.eml'),
+    )),
+    ids=lambda path: path.stem,
 )
 def test_find_unsubscribe_url(path: Path) -> None:
     raw = path.read_bytes()
@@ -44,7 +49,7 @@ def test_find_unsubscribe_url(path: Path) -> None:
 
 
 @mark.parametrize(
-    'path', sorted((SPAM / 'not-one-click').glob('*.eml')), ids=lambda path: path.stem
+    'path', sorted((HAMMER / 'spam' / 'not-one-click').glob('*.eml')), ids=lambda path: path.stem
 )
 def test_reject_real_headers(path: Path) -> None:
     with raises(CommandError):
@@ -78,11 +83,11 @@ def test_unsubscribe_http(status: int) -> None:
             ):
                 if status < 300:
                     assert 'accepted' in (
-                        await unsubscribe('contact@news.thealphapaths.com', '', dry_run=False) or ''
+                        await unsubscribe('campaigns@spoton.marketing', '', dry_run=False) or ''
                     )
                 else:
                     with raises(CommandError, match=f'HTTP {status}'):
-                        await unsubscribe('contact@news.thealphapaths.com', '', dry_run=False)
+                        await unsubscribe('campaigns@spoton.marketing', '', dry_run=False)
         finally:
             await runner.cleanup()
 
@@ -97,20 +102,19 @@ def test_unsubscribe_http(status: int) -> None:
 
 
 def test_unsubscribe_dry_run(capsys: CaptureFixture[str]) -> None:
-    raw = (SPAM / 'thealphapaths.eml').read_bytes()
+    raw = (HAMMER / 'baloney' / 'goorsha.eml').read_bytes()
     with (
         patch(
             'hammer.management.commands.unsubscribe.fetch_email', new=AsyncMock(return_value=raw)
         ) as fetch,
         patch('hammer.management.commands.unsubscribe.ClientSession') as session,
     ):
-        call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels', dry_run=True)
-    fetch.assert_awaited_once_with('contact@news.thealphapaths.com', '83 parcels')
+        call_command('unsubscribe', 'campaigns@spoton.marketing Goorsha', dry_run=True)
+    fetch.assert_awaited_once_with('campaigns@spoton.marketing', 'Goorsha')
     session.assert_not_called()
     assert capsys.readouterr().out == (
-        'Would request unsubscribe for contact@news.thealphapaths.com'
-        ' via click.news.thealphapaths.com\n'
-        'Would move 0 messages from news.thealphapaths.com to Trash\n'
+        'Would request unsubscribe for campaigns@spoton.marketing via optout.spoton.com\n'
+        'Would move 0 messages from campaigns@spoton.marketing to Trash\n'
     )
 
 
@@ -130,10 +134,8 @@ def test_unsubscribe_sweeps_regardless_of_result(accepted: bool) -> None:
         ) as cleanup,
     ):
         if accepted:
-            call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels')
+            call_command('unsubscribe', 'campaigns@spoton.marketing Goorsha')
         else:
             with raises(CommandError, match='Failed'):
-                call_command('unsubscribe', 'contact@news.thealphapaths.com 83 parcels')
-    cleanup.assert_awaited_once_with(
-        'contact@news.thealphapaths.com', dry_run=False, folder='Trash'
-    )
+                call_command('unsubscribe', 'campaigns@spoton.marketing Goorsha')
+    cleanup.assert_awaited_once_with('campaigns@spoton.marketing', dry_run=False, folder='Trash')

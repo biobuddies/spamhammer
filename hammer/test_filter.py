@@ -60,7 +60,7 @@ def test_filter_surfaces_failed_writes(
         call_command('filter', 'From', 'unchartedvalues.com')
     script = (
         'require "fileinto";\n'
-        'if header :contains "From" "unchartedvalues.com" { fileinto "Spam"; stop; }\n'
+        'if header :contains "From" "unchartedvalues.com" { fileinto "Junk"; stop; }\n'
     )
     assert (
         sent()
@@ -114,9 +114,7 @@ def test_filter_requires_folder(monkeypatch: MonkeyPatch) -> None:
 def test_filter_leaves_crlf_script_with_rule_alone(
     monkeypatch: MonkeyPatch, sieve_server: Callable[..., Callable[[], bytes]]
 ) -> None:
-    script = b'require "fileinto";\r\n' + RULE.replace('Junk', 'Spam').encode().replace(
-        b'\n', b'\r\n'
-    )
+    script = b'require "fileinto";\r\n' + RULE.encode().replace(b'\n', b'\r\n')
     sent = sieve_server(
         b'"USER" ACTIVE\r\nOK\r\n', b'{%d}\r\n%s\r\nOK\r\n' % (len(script), script), b'OK\r\n'
     )

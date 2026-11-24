@@ -21,7 +21,6 @@ from hammer.management.commands.sweep import sweep_summary
 
 logger = getLogger(__name__)
 
-# https://www.salesforce.com/company/legal/abuse/ asks for complete headers.
 SALESFORCE_ABUSE = 'abuse@salesforce.com'
 
 
@@ -35,7 +34,6 @@ def signed_by_salesforce(spam: bytes, imap_host: str) -> bool:
         [trusted.removeprefix('imap.')],
     ):
         return False
-    # Domains from https://www.spamresource.com/2020/07/quick-list-esp-abusespam-contact-list.html
     return bool(
         search(
             r'(?:^|;)\s*dkim(?:/\d+)?\s*=\s*pass\s+[^;]*?'
@@ -121,6 +119,6 @@ class Command(BaseCommand):
             if message:
                 await to_thread(send_salesforce_report, message)
         except Exception:
-            print(await sweep_summary(sender, dry_run=False, folder='Spam'))
+            print(await sweep_summary(sender, dry_run=False, folder='Junk'))
             raise
-        print(await sweep_summary(sender, dry_run=False, folder='Spam'))
+        print(await sweep_summary(sender, dry_run=False, folder='Junk'))

@@ -93,7 +93,7 @@ class Command(BaseCommand):
         """Take a sender and infer cleanup scope from the domain."""
         parser.add_argument('sender')
         parser.add_argument('--dry-run', action='store_true')
-        parser.add_argument('--folder', default='Spam', help='must already exist')
+        parser.add_argument('--folder', default='Junk', help='must already exist')
 
     def handle(
         self, *_args: object, sender: str, dry_run: bool, folder: str, **_options: object
