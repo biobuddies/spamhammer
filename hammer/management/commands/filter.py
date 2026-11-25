@@ -76,7 +76,7 @@ class Command(BaseCommand):
         parser.add_argument('header', help='e.g. Received')
         parser.add_argument('value', help='e.g. mta.exacttarget.com')
         parser.add_argument('--backtest', action='store_true', help='count INBOX matches only')
-        parser.add_argument('--folder', default='Spam', help='must already exist')
+        parser.add_argument('--folder', default='Junk', help='must already exist')
 
     def handle(
         self,
